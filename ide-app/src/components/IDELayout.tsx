@@ -34,6 +34,7 @@ import {
   PhoneOff,
   MonitorUp,
   Volume2,
+  VolumeX,
   UserPlus,
   LogOut,
   LogIn
@@ -266,6 +267,11 @@ export default function IDELayout() {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+
+  // Call settings state
+  const [isMuted, setIsMuted] = useState(false);
+  const [isDeafened, setIsDeafened] = useState(false);
+  const [isSharingScreen, setIsSharingScreen] = useState(false);
 
   // Dragging logic for Collab Session panel
   const [callPanelPos, setCallPanelPos] = useState({ x: 0, y: 0 });
@@ -1570,8 +1576,11 @@ export default function IDELayout() {
           {/* Floating Call UI Panel */}
           {isCallActive && isCallPanelOpen && (
             <div 
-              className="absolute top-6 right-6 w-72 bg-[#141419]/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl shadow-black/60 z-40 overflow-hidden flex flex-col animate-slide-up"
-              style={{ transform: `translate(${callPanelPos.x}px, ${callPanelPos.y}px)` }}
+              className="absolute w-72 bg-[#141419]/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl shadow-black/60 z-40 overflow-hidden flex flex-col animate-slide-up"
+              style={{ 
+                top: `${24 + callPanelPos.y}px`, 
+                right: `${24 - callPanelPos.x}px` 
+              }}
             >
               {/* Call Header */}
               <div 
@@ -1594,11 +1603,13 @@ export default function IDELayout() {
               {/* Call Video/Avatars Grid */}
               <div className="p-4 grid grid-cols-2 gap-3 bg-[#0d0d10]/40">
                 {/* User 1 */}
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-800/50 border-2 border-emerald-500/50 flex flex-col items-center justify-center group shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+                <div className={`relative aspect-square rounded-xl overflow-hidden bg-slate-800/50 border-2 flex flex-col items-center justify-center group transition-all duration-300 ${
+                  isMuted ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
+                }`}>
                   <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4" className="w-14 h-14 rounded-full" alt="Alex" />
                   <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
-                    <span className="text-[9px] font-medium text-white truncate">Alex</span>
-                    <Mic className="w-2.5 h-2.5 text-emerald-400" />
+                    <span className="text-[9px] font-medium text-white truncate">Alex (You)</span>
+                    {isMuted ? <MicOff className="w-2.5 h-2.5 text-red-400" /> : <Mic className="w-2.5 h-2.5 text-emerald-400" />}
                   </div>
                 </div>
                 {/* User 2 */}
@@ -1619,27 +1630,50 @@ export default function IDELayout() {
                     <Volume2 className="w-3 h-3 text-emerald-400 animate-pulse" />
                   </div>
                   {/* Audio wave mock */}
-                  <div className="absolute top-3 right-3 flex gap-0.5">
-                    <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></span>
-                    <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "100ms"}}></span>
-                    <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "200ms"}}></span>
-                  </div>
+                  {!isDeafened && (
+                    <div className="absolute top-3 right-3 flex gap-0.5">
+                      <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></span>
+                      <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "100ms"}}></span>
+                      <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "200ms"}}></span>
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Call Controls */}
               <div className="bg-[#1b1b22] p-3 flex justify-center gap-3 border-t border-slate-800/80">
-                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Mute">
-                  <Mic className="w-4.5 h-4.5" />
+                <button 
+                  onClick={() => setIsMuted(!isMuted)}
+                  className={`p-2.5 rounded-full transition-colors cursor-pointer ${
+                    isMuted ? "bg-red-600 hover:bg-red-500 text-white" : "bg-slate-700/50 hover:bg-slate-600 text-white"
+                  }`} 
+                  title={isMuted ? "Unmute" : "Mute"}
+                >
+                  {isMuted ? <MicOff className="w-4.5 h-4.5" /> : <Mic className="w-4.5 h-4.5" />}
                 </button>
-                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Deafen">
-                  <Volume2 className="w-4.5 h-4.5" />
+                <button 
+                  onClick={() => setIsDeafened(!isDeafened)}
+                  className={`p-2.5 rounded-full transition-colors cursor-pointer ${
+                    isDeafened ? "bg-red-600 hover:bg-red-500 text-white" : "bg-slate-700/50 hover:bg-slate-600 text-white"
+                  }`} 
+                  title={isDeafened ? "Undeafen" : "Deafen"}
+                >
+                  {isDeafened ? <VolumeX className="w-4.5 h-4.5" /> : <Volume2 className="w-4.5 h-4.5" />}
                 </button>
-                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Share Screen">
+                <button 
+                  onClick={() => setIsSharingScreen(!isSharingScreen)}
+                  className={`p-2.5 rounded-full transition-colors cursor-pointer ${
+                    isSharingScreen ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40" : "bg-slate-700/50 hover:bg-slate-600 text-white"
+                  }`} 
+                  title={isSharingScreen ? "Stop Sharing Screen" : "Share Screen"}
+                >
                   <MonitorUp className="w-4.5 h-4.5" />
                 </button>
                 <button 
-                  onClick={() => setIsCallActive(false)}
+                  onClick={() => {
+                    setIsCallActive(false);
+                    setIsCallPanelOpen(false);
+                  }}
                   className="p-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/40 transition-colors cursor-pointer" 
                   title="Disconnect"
                 >
@@ -1817,17 +1851,17 @@ export default function IDELayout() {
 
             {/* Streaming Typing Indicator Message */}
             {aiStatus === "typing" && streamingMessage && (
-              <div className="flex gap-3 max-w-[88%] mr-auto animate-slide-up">
-                <div className={`w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border ${
-                  editorTheme === "vs-dark" ? "bg-purple-950/40 border-purple-800/40 text-purple-400" : "bg-purple-50 border-purple-200 text-purple-600"
+              <div className="flex gap-3 max-w-[90%] mr-auto animate-slide-up">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-md ${
+                  editorTheme === "vs-dark" ? "bg-purple-950/60 border-purple-800/50 text-purple-400 animate-pulse-glow-purple" : "bg-purple-50 border-purple-250 text-purple-600"
                 }`}>
-                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                  <Sparkles className="w-4 h-4 animate-spin" />
                 </div>
                 <div className="flex flex-col gap-1.5 max-w-full">
-                  <div className={`p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-md transition-colors duration-250 ${
+                  <div className={`p-4 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-lg transition-colors duration-250 ${
                     editorTheme === "vs-dark" 
-                      ? "glass-panel text-slate-200 border border-slate-800/60 rounded-tl-none" 
-                      : "bg-white text-slate-700 border border-slate-200 rounded-tl-none"
+                      ? "bg-[#181822]/70 text-slate-200 border border-[#2d2d3c] rounded-tl-none" 
+                      : "bg-white text-slate-700 border border-slate-200/80 rounded-tl-none"
                   }`}>
                     {streamingMessage.includes("```") ? (
                       streamingMessage.split("```").map((block, idx) => {
@@ -1836,13 +1870,13 @@ export default function IDELayout() {
                           const lang = codeLines[0].trim();
                           const actualCode = codeLines.slice(1).join("\n");
                           return (
-                            <div key={idx} className={`my-2.5 border rounded-xl overflow-hidden font-mono text-[11px] transition-colors duration-250 ${
-                              editorTheme === "vs-dark" ? "border-slate-800/80 bg-[#0f0f12] text-slate-300" : "border-slate-200 bg-[#f9fafb] text-slate-700"
+                            <div key={idx} className={`my-3 border rounded-xl overflow-hidden font-mono text-[11px] shadow-lg transition-colors duration-250 ${
+                              editorTheme === "vs-dark" ? "border-[#252533] bg-[#07070a] text-slate-300" : "border-slate-200 bg-[#f8fafc] text-slate-700"
                             }`}>
                               <div className={`px-3.5 py-1.5 text-[9px] font-bold flex justify-between items-center select-none border-b transition-colors duration-250 ${
-                                editorTheme === "vs-dark" ? "bg-[#0c0c0e] text-slate-500 border-slate-900/60" : "bg-[#f3f4f6] text-slate-500 border-slate-200"
+                                editorTheme === "vs-dark" ? "bg-[#0b0b10] text-slate-500 border-[#1d1d28]" : "bg-[#f1f5f9] text-slate-500 border-slate-200"
                               }`}>
-                                <span className="uppercase tracking-wider">{lang || "code"}</span>
+                                <span className="uppercase tracking-wider font-semibold">{lang || "code"}</span>
                               </div>
                               <pre className="p-3.5 overflow-x-auto scrollbar-thin"><code>{actualCode}</code></pre>
                             </div>
@@ -1853,7 +1887,7 @@ export default function IDELayout() {
                     ) : (
                       streamingMessage
                     )}
-                    <span className="inline-block w-2 h-4 ml-1 bg-purple-500 animate-pulse rounded-sm align-middle"></span>
+                    <span className="inline-block w-1.5 h-3.5 ml-1 bg-purple-500 animate-pulse rounded-sm align-middle"></span>
                   </div>
                 </div>
               </div>
@@ -1861,18 +1895,18 @@ export default function IDELayout() {
 
             {/* Thinking Indicator Animation */}
             {aiStatus === "thinking" && (
-              <div className="flex gap-3 max-w-[88%] mr-auto items-start animate-slide-up">
-                <div className={`w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border ${
-                  editorTheme === "vs-dark" ? "bg-purple-950/40 border-purple-800/40 text-purple-400" : "bg-purple-50 border-purple-200 text-purple-600"
+              <div className="flex gap-3 max-w-[90%] mr-auto items-start animate-slide-up">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border shadow-md ${
+                  editorTheme === "vs-dark" ? "bg-purple-950/60 border-purple-800/50 text-purple-400 animate-pulse-glow-purple" : "bg-purple-50 border-purple-250 text-purple-600"
                 }`}>
-                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                  <Sparkles className="w-4 h-4 animate-spin" />
                 </div>
-                <div className={`border p-4.5 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-md transition-colors duration-250 ${
-                  editorTheme === "vs-dark" ? "glass-panel border-slate-800/60" : "bg-white border-slate-200"
+                <div className={`border p-4.5 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-lg transition-colors duration-250 ${
+                  editorTheme === "vs-dark" ? "bg-[#181822]/70 border-[#2d2d3c]" : "bg-white border-slate-200/80"
                 }`}>
-                  <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "0ms" }}></span>
-                  <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "150ms" }}></span>
-                  <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "300ms" }}></span>
+                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "0ms" }}></span>
+                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "150ms" }}></span>
+                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "300ms" }}></span>
                 </div>
               </div>
             )}
@@ -1883,48 +1917,48 @@ export default function IDELayout() {
           {/* Quick Prompts Panel */}
           <div className={`px-4 py-3.5 flex flex-col gap-2 shrink-0 border-t transition-colors duration-250 ${
             editorTheme === "vs-dark"
-              ? "border-[#202025] bg-[#0c0c0f]/80"
-              : "border-[#e5e7eb] bg-[#f9fafb]"
+              ? "border-[#1c1c22] bg-[#07070a]/60"
+              : "border-[#e2e8f0] bg-[#f8fafc]"
           }`}>
-            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Quick Suggestions</span>
+            <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-widest pl-0.5">Quick Suggestions</span>
             <div className="flex flex-wrap gap-1.5">
               <button 
                 onClick={() => handleQuickPrompt("explain")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)] ${
+                className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
                   editorTheme === "vs-dark"
-                    ? "text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50"
-                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-300"
+                    ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
+                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
                 }`}
               >
-                <Code className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                <Code className="w-3.5 h-3.5 text-purple-400" />
                 <span>Explain code</span>
               </button>
               <button 
                 onClick={() => handleQuickPrompt("refactor")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)] ${
+                className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
                   editorTheme === "vs-dark"
-                    ? "text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50"
-                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-300"
+                    ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
+                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
                 }`}
               >
-                <Bug className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                <Bug className="w-3.5 h-3.5 text-emerald-400" />
                 <span>Refactor</span>
               </button>
               <button 
                 onClick={() => handleQuickPrompt("test")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)] ${
+                className={`flex items-center gap-1.5 text-[10px] px-3.5 py-2 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] ${
                   editorTheme === "vs-dark"
-                    ? "text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50"
-                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50 border border-slate-200 hover:border-purple-300"
+                    ? "text-slate-200 hover:text-white bg-[#161620] hover:bg-purple-950/20 border border-[#252533] hover:border-purple-500/55"
+                    : "text-slate-700 hover:text-purple-700 bg-white hover:bg-purple-50/50 border border-slate-200 hover:border-purple-300"
                 }`}
               >
-                <Play className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                <Play className="w-3.5 h-3.5 text-amber-400" />
                 <span>Write Tests</span>
               </button>
             </div>
@@ -1936,14 +1970,14 @@ export default function IDELayout() {
               stopListening();
               handleSendMessage(e);
             }} 
-            className={`p-3.5 flex flex-col gap-2 shrink-0 border-t transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "bg-[#141418] border-[#202025]" : "bg-white border-[#e5e7eb]"
+            className={`p-4 flex flex-col gap-2.5 shrink-0 border-t transition-colors duration-250 ${
+              editorTheme === "vs-dark" ? "bg-[#0b0b0f] border-[#1c1c22]" : "bg-white border-[#e2e8f0]"
             }`}
           >
-            <div className={`relative flex items-end rounded-2xl p-2.5 transition-all duration-250 ${
+            <div className={`relative flex items-end rounded-2xl p-2.5 transition-all duration-300 border focus-within:shadow-[0_0_15px_rgba(168,85,247,0.15)] focus-within:scale-[1.01] ${
               editorTheme === "vs-dark"
-                ? "glass-input focus-within:ring-1 focus-within:ring-purple-500/60 focus-within:border-transparent"
-                : "bg-[#f3f4f6] border border-slate-200 focus-within:bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500/60"
+                ? "bg-[#09090d] border-[#252533] focus-within:border-purple-500/60 focus-within:ring-1 focus-within:ring-purple-500/40"
+                : "bg-[#f8fafc] border border-slate-200 focus-within:bg-white focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500/40"
             }`}>
               <textarea
                 ref={messageInputRef}
