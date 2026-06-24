@@ -265,6 +265,7 @@ export default function IDELayout() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
   // AI Chat states
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -538,6 +539,58 @@ export default function IDELayout() {
     }
   };
 
+  type MenuItem = { label: string; action?: () => void; divider?: boolean; shortcut?: string };
+  const IDE_MENUS: Record<string, MenuItem[]> = {
+    File: [
+      { label: "New File", shortcut: "Ctrl+N", action: () => alert("New File created (mock)") },
+      { label: "New Window", shortcut: "Ctrl+Shift+N", action: () => alert("New Window opened (mock)") },
+      { divider: true },
+      { label: "Save", shortcut: "Ctrl+S", action: () => alert("File saved successfully!") },
+      { label: "Save As...", shortcut: "Ctrl+Shift+S", action: () => alert("Save As dialog opened (mock)") },
+      { divider: true },
+      { label: "Share Workspace", action: () => setIsShareModalOpen(true) },
+      { divider: true },
+      { label: "Exit", shortcut: "Ctrl+Q", action: () => alert("Exiting IDE...") }
+    ],
+    Edit: [
+      { label: "Undo", shortcut: "Ctrl+Z", action: () => alert("Undo (mock)") },
+      { label: "Redo", shortcut: "Ctrl+Y", action: () => alert("Redo (mock)") },
+      { divider: true },
+      { label: "Cut", shortcut: "Ctrl+X", action: () => alert("Cut (mock)") },
+      { label: "Copy", shortcut: "Ctrl+C", action: () => alert("Copy (mock)") },
+      { label: "Paste", shortcut: "Ctrl+V", action: () => alert("Paste (mock)") }
+    ],
+    Selection: [
+      { label: "Select All", shortcut: "Ctrl+A", action: () => alert("Select All (mock)") },
+      { label: "Expand Selection", shortcut: "Alt+Shift+Right", action: () => alert("Expand Selection (mock)") }
+    ],
+    View: [
+      { label: "Explorer", shortcut: "Ctrl+Shift+E", action: () => { setLeftSidebarOpen(true); setActiveLeftTab("explorer"); } },
+      { label: "Search", shortcut: "Ctrl+Shift+F", action: () => { setLeftSidebarOpen(true); setActiveLeftTab("search"); } },
+      { label: "Source Control", shortcut: "Ctrl+Shift+G", action: () => { setLeftSidebarOpen(true); setActiveLeftTab("git"); } },
+      { divider: true },
+      { label: "Bottom Panel", shortcut: "Ctrl+J", action: () => setBottomPanelOpen(prev => !prev) },
+      { label: "AI Copilot", action: () => setRightSidebarOpen(prev => !prev) }
+    ],
+    Go: [
+      { label: "Go to File...", shortcut: "Ctrl+P", action: () => alert("Go to File (mock)") },
+      { label: "Go to Line...", shortcut: "Ctrl+G", action: () => alert("Go to Line (mock)") }
+    ],
+    Run: [
+      { label: "Start Debugging", shortcut: "F5", action: () => alert("Starting Debugger... (mock)") },
+      { label: "Run Without Debugging", shortcut: "Ctrl+F5", action: handleRunCode }
+    ],
+    Terminal: [
+      { label: "New Terminal", shortcut: "Ctrl+Shift+`", action: () => setBottomPanelOpen(true) }
+    ],
+    Help: [
+      { label: "Welcome", action: () => alert("Welcome to Cod Code IDE!") },
+      { label: "Keyboard Shortcuts", shortcut: "Ctrl+K Ctrl+S", action: () => alert("Keyboard Shortcuts (mock)") },
+      { divider: true },
+      { label: "About", action: () => alert("Cod Code IDE v0.1.0") }
+    ]
+  };
+
   const getFileIcon = (fileName: string) => {
     if (fileName.endsWith(".tsx")) {
       return (
@@ -575,18 +628,57 @@ export default function IDELayout() {
           </div>
 
           {/* Main Menu Bar */}
-          <div className={`hidden lg:flex items-center text-[11px] font-medium transition-colors duration-250 ${
+          <div className={`hidden lg:flex items-center text-[11px] font-medium transition-colors duration-250 relative ${
             editorTheme === "vs-dark" ? "text-slate-400" : "text-slate-600"
           }`}>
-            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>File</button>
-            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Edit</button>
-            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Selection</button>
-            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>View</button>
-            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Go</button>
-            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Run</button>
-            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Terminal</button>
-            <button className={`px-2 py-1 rounded transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900"} cursor-pointer`}>Help</button>
+            {Object.keys(IDE_MENUS).map((menuName) => (
+              <div key={menuName} className="relative">
+                <button 
+                  onClick={() => setActiveMenu(activeMenu === menuName ? null : menuName)}
+                  onMouseEnter={() => { if (activeMenu && activeMenu !== menuName) setActiveMenu(menuName); }}
+                  className={`px-2 py-1 rounded transition-colors cursor-pointer relative z-50 ${
+                    activeMenu === menuName 
+                      ? (editorTheme === "vs-dark" ? "bg-[#25252b] text-slate-100" : "bg-slate-200 text-slate-900")
+                      : (editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-200/60 hover:text-slate-900")
+                  }`}
+                >
+                  {menuName}
+                </button>
+
+                {/* Dropdown Menu */}
+                {activeMenu === menuName && (
+                  <div className={`absolute top-full left-0 mt-0.5 min-w-[240px] rounded-lg shadow-2xl border z-50 py-1.5 animate-in fade-in zoom-in-95 duration-100 ${
+                    editorTheme === "vs-dark" ? "bg-[#1e1e24] border-slate-700/80 text-slate-300 shadow-[0_8px_30px_rgba(0,0,0,0.6)]" : "bg-white border-slate-200 text-slate-700 shadow-[0_8px_30px_rgba(0,0,0,0.15)]"
+                  }`}>
+                    {IDE_MENUS[menuName].map((item, idx) => 
+                      item.divider ? (
+                        <hr key={idx} className={`my-1.5 border-t ${editorTheme === "vs-dark" ? "border-slate-700/60" : "border-slate-100"}`} />
+                      ) : (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            if (item.action) item.action();
+                            setActiveMenu(null);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-1.5 text-xs transition-colors cursor-pointer text-left ${
+                            editorTheme === "vs-dark" ? "hover:bg-indigo-600 hover:text-white" : "hover:bg-indigo-50 hover:text-indigo-600"
+                          }`}
+                        >
+                          <span>{item.label}</span>
+                          {item.shortcut && <span className={`text-[10px] opacity-60 ml-6 font-sans tracking-wide`}>{item.shortcut}</span>}
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
+
+          {/* Click Away Overlay for Menus */}
+          {activeMenu && (
+            <div className="fixed inset-0 z-40" onClick={() => setActiveMenu(null)}></div>
+          )}
         </div>
         
         {/* Active file display */}
