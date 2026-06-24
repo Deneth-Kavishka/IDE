@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, UserPlus, Globe, Copy, ChevronDown, Check } from 'lucide-react';
 
 interface ShareModalProps {
