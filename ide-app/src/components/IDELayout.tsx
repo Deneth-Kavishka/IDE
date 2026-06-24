@@ -18,12 +18,14 @@ import {
   FileJson,
   Plus,
   Play,
-  PlayCircle,
   Moon,
   Sun,
   TerminalSquare,
   Hash,
-  Send
+  Send,
+  Terminal,
+  Zap,
+  CheckCheck
 } from "lucide-react";
 
 interface MockFile {
@@ -134,6 +136,9 @@ export default function IDELayout() {
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark");
   const [fontSize, setFontSize] = useState<number>(14);
 
+  // UI state for clipboard copy confirmations
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+
   // AI Chat states
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -205,6 +210,13 @@ export default function IDELayout() {
     }
   };
 
+  // Copy code to clipboard helper
+  const handleCopyCode = (code: string, id: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedCodeId(id);
+    setTimeout(() => setCopiedCodeId(null), 2000);
+  };
+
   // Handle sending chat message
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,15 +277,21 @@ export default function IDELayout() {
           setStreamingMessage("");
           setAiStatus("idle");
         }
-      }, 40); // 40ms per word for natural streaming flow
-    }, 1500); // 1.5 seconds thinking delay
+      }, 35); // Optimized words streaming interval for natural feel
+    }, 1200); // Optimized thinking delay (slightly faster for desktop snappy feel)
   };
 
   const getFileIcon = (fileName: string) => {
-    if (fileName.endsWith(".tsx")) return <Code className="w-4 h-4 text-sky-400" />;
-    if (fileName.endsWith(".css")) return <Hash className="w-4 h-4 text-teal-400" />;
-    if (fileName.endsWith(".json")) return <FileJson className="w-4 h-4 text-amber-400" />;
-    return <FileCode className="w-4 h-4 text-slate-400" />;
+    if (fileName.endsWith(".tsx")) {
+      return (
+        <svg className="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.09 13.06c-.4.48-1 .74-1.74.74-.78 0-1.39-.28-1.78-.81-.38-.53-.59-1.25-.59-2.09 0-.89.21-1.63.6-2.16.39-.54 1.01-.83 1.78-.83.74 0 1.34.26 1.74.74.39.49.59 1.2.59 2.11 0 .96-.19 1.68-.6 2.14z"/>
+        </svg>
+      );
+    }
+    if (fileName.endsWith(".css")) return <Hash className="w-4 h-4 text-teal-400 shrink-0" />;
+    if (fileName.endsWith(".json")) return <FileJson className="w-4 h-4 text-amber-500 shrink-0" />;
+    return <FileCode className="w-4 h-4 text-slate-400 shrink-0" />;
   };
 
   const activeFile = files[activeFilePath] || initialFiles["src/components/IDELayout.tsx"];
@@ -281,50 +299,58 @@ export default function IDELayout() {
   return (
     <div 
       data-testid="ide-container" 
-      className="flex flex-col w-full h-full bg-[#1e1e1e] text-slate-200 select-none overflow-hidden font-sans"
+      className="flex flex-col w-full h-full bg-[#121215] text-slate-200 select-none overflow-hidden font-sans gpu-layer"
     >
       {/* Top Header / Title Bar */}
-      <header className="h-10 bg-[#2d2d2d] border-b border-[#252526] flex items-center justify-between px-4 text-xs font-medium text-slate-400">
+      <header className="h-11 bg-[#1a1a1f] border-b border-[#25252b] flex items-center justify-between px-4 text-xs font-medium text-slate-400 z-30">
         <div className="flex items-center gap-2">
-          <div className="flex gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block"></span>
-            <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block"></span>
-            <span className="w-3 h-3 rounded-full bg-[#27c93f] inline-block"></span>
+          <div className="flex gap-1.5 mr-2">
+            <span className="w-3 h-3 rounded-full bg-[#ff5f56] inline-block hover:brightness-110 cursor-pointer transition-all"></span>
+            <span className="w-3 h-3 rounded-full bg-[#ffbd2e] inline-block hover:brightness-110 cursor-pointer transition-all"></span>
+            <span className="w-3 h-3 rounded-full bg-[#27c93f] inline-block hover:brightness-110 cursor-pointer transition-all"></span>
           </div>
-          <span className="ml-4 font-semibold text-slate-300">Antigravity Studio IDE</span>
+          <div className="flex items-center gap-1.5 ml-2">
+            <Terminal className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="font-semibold text-slate-300 tracking-wide font-mono">Antigravity Studio IDE</span>
+          </div>
         </div>
         
         {/* Active file display */}
-        <div className="hidden md:flex items-center gap-2 bg-[#1e1e1e] px-4 py-1 rounded-md border border-[#3e3e3e]">
-          <span className="text-[10px] text-indigo-400 font-bold uppercase bg-indigo-950/50 px-1.5 py-0.5 rounded border border-indigo-900/50">Workspace</span>
-          <span className="text-slate-300 text-xs font-mono">{activeFile.path}</span>
+        <div className="hidden md:flex items-center gap-2 bg-[#0e0e11]/80 px-4 py-1.5 rounded-full border border-slate-800/80">
+          <span className="text-[9px] text-indigo-400 font-bold uppercase tracking-wider bg-indigo-950/40 px-2 py-0.5 rounded-full border border-indigo-900/40">Active Workspace</span>
+          <span className="text-slate-300 text-xs font-mono select-all">{activeFile.path}</span>
         </div>
 
         {/* Action icons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button 
             onClick={() => setEditorTheme(prev => prev === "vs-dark" ? "light" : "vs-dark")}
-            className="p-1 hover:bg-[#3c3c3c] rounded text-slate-400 hover:text-white transition-colors"
-            title="Toggle Theme"
+            className="p-1.5 hover:bg-slate-800/50 rounded-lg text-slate-400 hover:text-white hover-scale cursor-pointer"
+            title="Toggle Light/Dark Theme"
           >
-            {editorTheme === "vs-dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {editorTheme === "vs-dark" ? (
+              <Sun className="w-4 h-4 text-amber-400 transition-transform duration-500 hover:rotate-45" />
+            ) : (
+              <Moon className="w-4 h-4 text-indigo-400 transition-transform duration-500 hover:-rotate-12" />
+            )}
           </button>
+          
           <button 
             onClick={handleRunCode}
-            className="flex items-center gap-1 bg-[#248a3d] hover:bg-[#2ca249] text-white px-2.5 py-1 rounded text-xs transition-colors font-semibold"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-3 py-1.5 rounded-lg text-xs hover-scale cursor-pointer font-semibold shadow-md shadow-emerald-950/20"
           >
             <Play className="w-3.5 h-3.5 fill-white" />
-            <span>Run</span>
+            <span>Run App</span>
           </button>
         </div>
       </header>
 
       {/* Main Workspace Body */}
-      <div className="flex flex-1 w-full overflow-hidden">
+      <div className="flex flex-1 w-full overflow-hidden relative">
         
         {/* 1. Activity Bar (Far Left) */}
-        <div className="w-12 bg-[#181818] border-r border-[#252526] flex flex-col justify-between items-center py-2 text-slate-400">
-          <div className="flex flex-col gap-2 w-full items-center">
+        <div className="w-13 bg-[#0d0d10] border-r border-[#25252b] flex flex-col justify-between items-center py-3 text-slate-400 z-20 shrink-0">
+          <div className="flex flex-col gap-2.5 w-full items-center">
             {/* Explorer Toggle */}
             <button
               onClick={() => {
@@ -335,16 +361,16 @@ export default function IDELayout() {
                   setActiveLeftTab("explorer");
                 }
               }}
-              className={`p-2.5 rounded-lg transition-all relative group ${
+              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
                 leftSidebarOpen && activeLeftTab === "explorer" 
-                  ? "text-indigo-400 bg-[#2d2d2d]" 
-                  : "hover:text-slate-200 hover:bg-[#252526]"
+                  ? "text-indigo-400 bg-[#1a1a24] shadow-inner" 
+                  : "hover:text-slate-200 hover:bg-slate-900/60"
               }`}
               title="File Explorer"
             >
-              <Folder className="w-5 h-5" />
+              <Folder className="w-5.5 h-5.5" />
               {leftSidebarOpen && activeLeftTab === "explorer" && (
-                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r"></span>
+                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
               )}
             </button>
 
@@ -358,16 +384,16 @@ export default function IDELayout() {
                   setActiveLeftTab("search");
                 }
               }}
-              className={`p-2.5 rounded-lg transition-all relative group ${
+              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
                 leftSidebarOpen && activeLeftTab === "search" 
-                  ? "text-indigo-400 bg-[#2d2d2d]" 
-                  : "hover:text-slate-200 hover:bg-[#252526]"
+                  ? "text-indigo-400 bg-[#1a1a24] shadow-inner" 
+                  : "hover:text-slate-200 hover:bg-slate-900/60"
               }`}
               title="Search"
             >
-              <Search className="w-5 h-5" />
+              <Search className="w-5.5 h-5.5" />
               {leftSidebarOpen && activeLeftTab === "search" && (
-                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r"></span>
+                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
               )}
             </button>
 
@@ -381,117 +407,117 @@ export default function IDELayout() {
                   setActiveLeftTab("git");
                 }
               }}
-              className={`p-2.5 rounded-lg transition-all relative group ${
+              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
                 leftSidebarOpen && activeLeftTab === "git" 
-                  ? "text-indigo-400 bg-[#2d2d2d]" 
-                  : "hover:text-slate-200 hover:bg-[#252526]"
+                  ? "text-indigo-400 bg-[#1a1a24] shadow-inner" 
+                  : "hover:text-slate-200 hover:bg-slate-900/60"
               }`}
               title="Source Control"
             >
-              <GitBranch className="w-5 h-5" />
+              <GitBranch className="w-5.5 h-5.5" />
               {leftSidebarOpen && activeLeftTab === "git" && (
-                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r"></span>
+                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
               )}
             </button>
 
-            <hr className="w-8 border-[#2d2d2d] my-1" />
+            <hr className="w-8 border-slate-800/80 my-1.5" />
 
-            {/* AI Assistant Sidebar Toggle (Activates right sidebar) */}
+            {/* AI Assistant Sidebar Toggle (Activates right sidebar with pulse glow) */}
             <button
               onClick={() => setRightSidebarOpen(prev => !prev)}
-              className={`p-2.5 rounded-lg transition-all relative ${
+              className={`p-2.5 rounded-xl transition-all duration-300 relative cursor-pointer ${
                 rightSidebarOpen 
-                  ? "text-purple-400 bg-[#2d2d2d]/60 shadow-[0_0_8px_rgba(168,85,247,0.15)]" 
-                  : "hover:text-slate-200 hover:bg-[#252526]"
+                  ? "text-purple-400 bg-purple-950/20 border border-purple-800/40 shadow-[0_0_15px_rgba(168,85,247,0.25)] animate-pulse-glow-purple" 
+                  : "hover:text-purple-400 hover:bg-purple-950/10 hover:border hover:border-purple-950/20"
               }`}
-              title="Toggle AI Copilot Chat"
+              title="Toggle AI Copilot"
             >
-              <Sparkles className={`w-5 h-5 ${rightSidebarOpen ? "animate-pulse" : ""}`} />
+              <Sparkles className={`w-5.5 h-5.5 ${rightSidebarOpen ? "text-purple-400" : "text-slate-400"}`} />
             </button>
           </div>
 
-          <div className="flex flex-col gap-2 items-center w-full">
-            <button className="p-2.5 hover:text-slate-200 hover:bg-[#252526] rounded-lg transition-all" title="User Profile">
-              <User className="w-5 h-5" />
+          <div className="flex flex-col gap-2 w-full items-center">
+            <button className="p-2.5 hover:text-slate-200 hover:bg-slate-900/60 rounded-xl transition-all cursor-pointer hover-scale" title="User Profile">
+              <User className="w-5.5 h-5.5" />
             </button>
-            <button className="p-2.5 hover:text-slate-200 hover:bg-[#252526] rounded-lg transition-all" title="Settings">
-              <Settings className="w-5 h-5" />
+            <button className="p-2.5 hover:text-slate-200 hover:bg-slate-900/60 rounded-xl transition-all cursor-pointer hover-scale" title="Settings">
+              <Settings className="w-5.5 h-5.5" />
             </button>
           </div>
         </div>
 
         {/* 2. Left Collapsible Sidebar */}
         <div 
-          className={`bg-[#1e1e1e] border-r border-[#252526] flex flex-col transition-all duration-300 overflow-hidden ${
+          className={`bg-[#16161a] border-r border-[#25252b] flex flex-col transition-all duration-300 ease-out overflow-hidden z-10 gpu-layer ${
             leftSidebarOpen ? "w-64" : "w-0"
           }`}
         >
           {activeLeftTab === "explorer" && (
             <div className="flex flex-col h-full text-xs">
-              <div className="p-3 border-b border-[#252526] flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase text-slate-400">
+              <div className="p-3.5 border-b border-[#25252b] flex items-center justify-between font-semibold tracking-wider text-[10px] uppercase text-slate-400">
                 <span>Explorer: Project</span>
-                <div className="flex items-center gap-1">
-                  <button className="p-1 hover:bg-[#2d2d2d] rounded text-slate-400 hover:text-white" title="New File">
+                <div className="flex items-center gap-1.5">
+                  <button className="p-1 hover:bg-slate-800/60 rounded text-slate-400 hover:text-white cursor-pointer transition-colors" title="New File">
                     <Plus className="w-3.5 h-3.5" />
                   </button>
-                  <button className="p-1 hover:bg-[#2d2d2d] rounded text-slate-400 hover:text-white" title="Refresh">
+                  <button className="p-1 hover:bg-slate-800/60 rounded text-slate-400 hover:text-white cursor-pointer transition-colors" title="Refresh">
                     <RefreshCw className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
               {/* Explorer File Tree */}
-              <div className="flex-1 overflow-y-auto p-2">
+              <div className="flex-1 overflow-y-auto p-2 scrollbar-thin">
                 {/* Root Directory */}
                 <div>
                   <button 
                     onClick={() => setExplorerExpanded(prev => ({ ...prev, root: !prev.root }))}
-                    className="flex items-center gap-1 w-full py-1.5 px-2 hover:bg-[#2d2d2d] rounded text-left font-semibold text-slate-300"
+                    className="flex items-center gap-1.5 w-full py-2 px-2 hover:bg-slate-800/30 rounded-lg text-left font-semibold text-slate-300 transition-colors cursor-pointer"
                   >
-                    {explorerExpanded.root ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                    <Folder className="w-4 h-4 text-amber-500 fill-amber-500/10" />
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.root ? "-rotate-90" : ""}`} />
+                    <Folder className="w-4.5 h-4.5 text-amber-500 fill-amber-500/10 shrink-0" />
                     <span>ide-app</span>
                   </button>
 
                   {explorerExpanded.root && (
-                    <div className="pl-4 mt-0.5 border-l border-[#2d2d2d] ml-3.5">
+                    <div className="pl-4 mt-0.5 border-l border-slate-800/60 ml-4.5 flex flex-col gap-0.5">
                       {/* Src Directory */}
                       <div>
                         <button
                           onClick={() => setExplorerExpanded(prev => ({ ...prev, src: !prev.src }))}
-                          className="flex items-center gap-1 w-full py-1 px-2 hover:bg-[#2d2d2d] rounded text-left text-slate-300"
+                          className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-slate-800/30 rounded-lg text-left text-slate-300 transition-colors cursor-pointer"
                         >
-                          {explorerExpanded.src ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                          <Folder className="w-3.5 h-3.5 text-blue-400 fill-blue-400/10" />
+                          <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.src ? "-rotate-90" : ""}`} />
+                          <Folder className="w-4 h-4 text-indigo-400 fill-indigo-400/10 shrink-0" />
                           <span>src</span>
                         </button>
 
                         {explorerExpanded.src && (
-                          <div className="pl-4 border-l border-[#2d2d2d] ml-3.5">
+                          <div className="pl-4 border-l border-slate-800/60 ml-4 flex flex-col gap-0.5">
                             {/* Components Directory */}
                             <div>
                               <button
                                 onClick={() => setExplorerExpanded(prev => ({ ...prev, components: !prev.components }))}
-                                className="flex items-center gap-1 w-full py-1 px-2 hover:bg-[#2d2d2d] rounded text-left text-slate-300"
+                                className="flex items-center gap-1.5 w-full py-1.5 px-2 hover:bg-slate-800/30 rounded-lg text-left text-slate-300 transition-colors cursor-pointer"
                               >
-                                {explorerExpanded.components ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                                <Folder className="w-3.5 h-3.5 text-indigo-400 fill-indigo-400/10" />
+                                <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-250 ${!explorerExpanded.components ? "-rotate-90" : ""}`} />
+                                <Folder className="w-4 h-4 text-purple-400 fill-purple-400/10 shrink-0" />
                                 <span>components</span>
                               </button>
 
                               {explorerExpanded.components && (
-                                <div className="pl-4 border-l border-[#2d2d2d] ml-3.5">
+                                <div className="pl-4 border-l border-slate-800/60 ml-4 flex flex-col gap-0.5">
                                   {/* IDELayout.tsx */}
                                   <button
                                     onClick={() => handleOpenFile("src/components/IDELayout.tsx")}
-                                    className={`flex items-center gap-2 w-full py-1 px-2 rounded text-left ${
+                                    className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
                                       activeFilePath === "src/components/IDELayout.tsx" 
-                                        ? "bg-[#37373d] text-white font-medium" 
-                                        : "hover:bg-[#2a2a2e] text-slate-400 hover:text-slate-200"
+                                        ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
+                                        : "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200"
                                     }`}
                                   >
                                     {getFileIcon("src/components/IDELayout.tsx")}
-                                    <span>IDELayout.tsx</span>
+                                    <span className="font-mono">IDELayout.tsx</span>
                                   </button>
                                 </div>
                               )}
@@ -500,27 +526,27 @@ export default function IDELayout() {
                             {/* App.tsx */}
                             <button
                               onClick={() => handleOpenFile("src/App.tsx")}
-                              className={`flex items-center gap-2 w-full py-1 px-2 rounded text-left ${
+                              className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
                                 activeFilePath === "src/App.tsx" 
-                                  ? "bg-[#37373d] text-white font-medium" 
-                                  : "hover:bg-[#2a2a2e] text-slate-400 hover:text-slate-200"
+                                  ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
+                                  : "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200"
                               }`}
                             >
                               {getFileIcon("src/App.tsx")}
-                              <span>App.tsx</span>
+                              <span className="font-mono">App.tsx</span>
                             </button>
 
                             {/* index.css */}
                             <button
                               onClick={() => handleOpenFile("src/index.css")}
-                              className={`flex items-center gap-2 w-full py-1 px-2 rounded text-left ${
+                              className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
                                 activeFilePath === "src/index.css" 
-                                  ? "bg-[#37373d] text-white font-medium" 
-                                  : "hover:bg-[#2a2a2e] text-slate-400 hover:text-slate-200"
+                                  ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
+                                  : "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200"
                               }`}
                             >
                               {getFileIcon("src/index.css")}
-                              <span>index.css</span>
+                              <span className="font-mono">index.css</span>
                             </button>
                           </div>
                         )}
@@ -529,14 +555,14 @@ export default function IDELayout() {
                       {/* package.json */}
                       <button
                         onClick={() => handleOpenFile("package.json")}
-                        className={`flex items-center gap-2 w-full py-1 px-2 rounded text-left mt-0.5 ${
+                        className={`flex items-center gap-2 w-full py-1.5 px-2.5 rounded-lg text-left cursor-pointer transition-all duration-200 ${
                           activeFilePath === "package.json" 
-                            ? "bg-[#37373d] text-white font-medium" 
-                            : "hover:bg-[#2a2a2e] text-slate-400 hover:text-slate-200"
+                            ? "explorer-item-active text-white font-medium shadow-md shadow-indigo-950/20" 
+                            : "hover:bg-slate-800/30 text-slate-400 hover:text-slate-200"
                         }`}
                       >
                         {getFileIcon("package.json")}
-                        <span>package.json</span>
+                        <span className="font-mono">package.json</span>
                       </button>
                     </div>
                   )}
@@ -547,11 +573,11 @@ export default function IDELayout() {
 
           {activeLeftTab === "search" && (
             <div className="flex flex-col h-full p-4 text-xs">
-              <span className="font-semibold uppercase text-slate-400 text-[10px] tracking-wider mb-2">Search Workspace</span>
+              <span className="font-semibold uppercase text-slate-400 text-[9px] tracking-wider mb-2.5">Search Workspace</span>
               <input 
                 type="text" 
-                placeholder="Search..." 
-                className="w-full bg-[#2d2d2d] border border-[#3e3e3e] text-white rounded px-2.5 py-1.5 focus:border-indigo-500 mb-4"
+                placeholder="Search text..." 
+                className="w-full bg-[#1b1b22] border border-[#2d2d35] text-white rounded-lg px-3 py-2 focus:border-indigo-500 mb-4 focus:ring-1 focus:ring-indigo-500 transition-all font-mono"
               />
               <span className="text-slate-500 text-center mt-4">Type to search for text inside files.</span>
             </div>
@@ -559,19 +585,22 @@ export default function IDELayout() {
 
           {activeLeftTab === "git" && (
             <div className="flex flex-col h-full p-4 text-xs">
-              <span className="font-semibold uppercase text-slate-400 text-[10px] tracking-wider mb-2">Source Control</span>
-              <div className="bg-[#2d2d2d] border border-[#3e3e3e] p-3 rounded mb-4">
-                <p className="font-medium text-slate-300 mb-1">1 Pending Change</p>
-                <div className="flex items-center gap-2 text-slate-400 py-1 font-mono">
-                  <span className="text-amber-500 font-bold">M</span>
-                  <span>src/components/IDELayout.tsx</span>
+              <span className="font-semibold uppercase text-slate-400 text-[9px] tracking-wider mb-2.5">Source Control</span>
+              <div className="bg-[#1b1b22] border border-[#2d2d35] p-3.5 rounded-xl mb-4 shadow-inner">
+                <p className="font-semibold text-indigo-400 mb-2 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-indigo-400 fill-indigo-400/20" />
+                  <span>1 Workspace Change</span>
+                </p>
+                <div className="flex items-center justify-between text-[11px] text-slate-300 py-1 font-mono">
+                  <span className="truncate">src/components/IDELayout.tsx</span>
+                  <span className="text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/25">M</span>
                 </div>
               </div>
               <textarea 
                 placeholder="Commit message..." 
-                className="w-full bg-[#2d2d2d] border border-[#3e3e3e] text-white rounded p-2 focus:border-indigo-500 h-20 text-xs mb-2 resize-none"
+                className="w-full bg-[#1b1b22] border border-[#2d2d35] text-white rounded-xl p-3 focus:border-indigo-500 h-22 text-xs mb-3 resize-none focus:ring-1 focus:ring-indigo-500 transition-all"
               />
-              <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded py-2 font-semibold transition-colors">
+              <button className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-xl py-2.5 font-semibold transition-all shadow-md shadow-indigo-950/20 hover-scale cursor-pointer">
                 Commit & Push (main)
               </button>
             </div>
@@ -579,10 +608,10 @@ export default function IDELayout() {
         </div>
 
         {/* 3. Editor Workspace Area (Center) */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#1e1e1e] relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#131317] relative">
           
           {/* Tab bar */}
-          <div className="h-9 bg-[#252526] flex items-center overflow-x-auto border-b border-[#1e1e1e] select-none scrollbar-none">
+          <div className="h-10 bg-[#16161a] flex items-center overflow-x-auto border-b border-[#1b1b20] select-none scrollbar-none z-10 shrink-0">
             {openTabs.map(tabPath => {
               const file = files[tabPath] || { name: tabPath };
               const isActive = tabPath === activeFilePath;
@@ -590,17 +619,17 @@ export default function IDELayout() {
                 <div
                   key={tabPath}
                   onClick={() => setActiveFilePath(tabPath)}
-                  className={`group h-full flex items-center gap-2 px-3 py-1.5 text-xs border-r border-[#252526] cursor-pointer transition-colors relative ${
+                  className={`group h-full flex items-center gap-2.5 px-4.5 py-2 text-xs border-r border-[#1f1f25] cursor-pointer transition-all duration-300 relative ${
                     isActive 
-                      ? "bg-[#1e1e1e] text-white font-medium border-t-2 border-indigo-500" 
-                      : "bg-[#2d2d2d]/60 text-slate-400 hover:bg-[#2d2d2d] hover:text-slate-200"
+                      ? "bg-[#131317] text-white font-medium border-t-2 border-indigo-500 shadow-inner" 
+                      : "bg-[#18181c]/60 text-slate-400 hover:bg-[#18181c] hover:text-slate-200"
                   }`}
                 >
                   {getFileIcon(file.name)}
-                  <span className="font-mono text-xs">{file.name}</span>
+                  <span className="font-mono text-[11px]">{file.name}</span>
                   <button
                     onClick={(e) => handleCloseTab(e, tabPath)}
-                    className="p-0.5 rounded-full text-slate-500 hover:text-white hover:bg-[#3c3c3c] transition-colors ml-1"
+                    className="p-0.5 rounded-full text-slate-500 hover:text-white hover:bg-slate-800/80 transition-colors ml-1"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -610,7 +639,7 @@ export default function IDELayout() {
           </div>
 
           {/* Breadcrumb line */}
-          <div className="h-6 bg-[#1e1e1e] border-b border-[#2d2d2d] flex items-center px-4 text-[10px] text-slate-500 font-mono gap-1">
+          <div className="h-6.5 bg-[#131317] border-b border-slate-900 flex items-center px-4.5 text-[10px] text-slate-500 font-mono gap-1.5 shrink-0">
             <span className="hover:text-slate-300 cursor-pointer">ide-app</span>
             <ChevronRight className="w-3 h-3" />
             <span className="hover:text-slate-300 cursor-pointer">src</span>
@@ -621,11 +650,11 @@ export default function IDELayout() {
                 <ChevronRight className="w-3 h-3" />
               </>
             )}
-            <span className="text-slate-300 font-medium">{activeFile.name}</span>
+            <span className="text-indigo-400 font-medium">{activeFile.name}</span>
           </div>
 
           {/* Monaco Editor Container */}
-          <div className="flex-1 w-full relative">
+          <div className="flex-1 w-full relative bg-[#1e1e1e]">
             <Editor
               height="100%"
               path={activeFile.path}
@@ -637,33 +666,40 @@ export default function IDELayout() {
                 fontSize: fontSize,
                 minimap: { enabled: true },
                 scrollbar: {
-                  verticalScrollbarSize: 8,
-                  horizontalScrollbarSize: 8
+                  verticalScrollbarSize: 6,
+                  horizontalScrollbarSize: 6,
+                  vertical: "visible",
+                  horizontal: "visible"
                 },
                 lineNumbers: "on",
-                roundedSelection: false,
+                roundedSelection: true,
                 scrollBeyondLastLine: false,
                 readOnly: false,
                 automaticLayout: true,
-                cursorBlinking: "blink",
-                cursorSmoothCaretAnimation: "on"
+                cursorBlinking: "smooth",
+                cursorSmoothCaretAnimation: "on",
+                fontFamily: "Fira Code, Menlo, Monaco, Consolas, monospace",
+                fontLigatures: true,
+                renderLineHighlight: "all",
+                quickSuggestions: { other: true, comments: true, strings: true },
+                suggestOnTriggerCharacters: true
               }}
             />
           </div>
 
           {/* Code actions bar / Overlay options */}
-          <div className="absolute bottom-3 right-6 flex items-center gap-2 bg-[#2d2d2d]/85 backdrop-blur border border-[#3e3e3e] py-1 px-2.5 rounded-lg shadow-lg text-[11px] text-slate-300 z-10">
-            <span className="text-slate-500 font-semibold uppercase text-[9px] tracking-wide pr-1 border-r border-[#3e3e3e] mr-1">Font Size</span>
+          <div className="absolute bottom-4 right-6 flex items-center gap-2 bg-[#1b1b22]/90 backdrop-blur border border-slate-800/80 py-1.5 px-3 rounded-xl shadow-xl shadow-black/40 text-[11px] text-slate-300 z-10 select-none">
+            <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wide pr-1.5 border-r border-slate-800 mr-1">Font Scale</span>
             <button 
               onClick={() => setFontSize(prev => Math.max(10, prev - 1))}
-              className="p-1 hover:bg-[#3c3c3c] rounded w-5 h-5 flex items-center justify-center font-bold font-mono"
+              className="p-1 hover:bg-slate-800 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer"
             >
               -
             </button>
-            <span className="font-mono">{fontSize}px</span>
+            <span className="font-mono text-indigo-400 font-semibold">{fontSize}px</span>
             <button 
               onClick={() => setFontSize(prev => Math.min(22, prev + 1))}
-              className="p-1 hover:bg-[#3c3c3c] rounded w-5 h-5 flex items-center justify-center font-bold font-mono"
+              className="p-1 hover:bg-slate-800 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer"
             >
               +
             </button>
@@ -672,30 +708,33 @@ export default function IDELayout() {
 
         {/* 4. Right Collapsible Sidebar (AI Chat Interface) */}
         <div 
-          className={`bg-[#1f1f23] border-l border-[#252526] flex flex-col transition-all duration-300 overflow-hidden relative ${
+          className={`bg-[#121216] border-l border-[#25252b] flex flex-col transition-all duration-300 ease-out overflow-hidden relative z-10 gpu-layer ${
             rightSidebarOpen ? "w-[380px]" : "w-0"
           }`}
         >
-          {/* Header */}
-          <div className="p-3 bg-[#26262a] border-b border-[#2d2d30] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1 rounded bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                <Sparkles className="w-4 h-4 animate-pulse" />
+          {/* Header with gradient flow */}
+          <div className="p-4 bg-gradient-to-r from-[#17171d] via-[#1a1a24] to-[#121217] border-b border-[#25252b] flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.15)] animate-pulse-glow-purple">
+                <Sparkles className="w-4.5 h-4.5" />
               </div>
-              <span className="text-sm font-semibold text-slate-100">AI Coding Copilot</span>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-purple-400 block">System AI</span>
+                <span className="text-[13px] font-bold text-slate-100 block -mt-0.5">Coding Assistant</span>
+              </div>
             </div>
             
             <button
               onClick={() => setRightSidebarOpen(false)}
-              className="p-1 hover:bg-[#2e2e34] rounded text-slate-400 hover:text-white transition-colors"
-              title="Close Panel"
+              className="p-1.5 hover:bg-slate-800/60 rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer"
+              title="Close Copilot Panel"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4.5 h-4.5" />
             </button>
           </div>
 
           {/* AI Status Indicator Bar */}
-          <div className="px-4 py-2 border-b border-[#2d2d30] bg-[#1a1a1d] flex items-center justify-between text-xs text-slate-400">
+          <div className="px-4 py-2 border-b border-[#202025] bg-[#0c0c0f]/80 flex items-center justify-between text-xs text-slate-400">
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 {aiStatus !== "idle" && (
@@ -705,20 +744,20 @@ export default function IDELayout() {
                 )}
                 <span className={`relative inline-flex rounded-full h-2 w-2 ${
                   aiStatus === "idle" 
-                    ? "bg-[#27c93f]" 
+                    ? "bg-emerald-500" 
                     : aiStatus === "thinking" 
                     ? "bg-amber-400" 
                     : "bg-cyan-400"
                 }`}></span>
               </span>
-              <span className="font-medium text-slate-300">
-                AI Status:{" "}
-                <span className={`font-semibold capitalize ${
+              <span className="font-semibold text-slate-300">
+                Copilot:{" "}
+                <span className={`font-bold uppercase tracking-wide text-[10px] px-1.5 py-0.5 rounded border ${
                   aiStatus === "thinking" 
-                    ? "text-amber-400" 
+                    ? "text-amber-400 bg-amber-500/10 border-amber-500/20" 
                     : aiStatus === "typing" 
-                    ? "text-cyan-400 animate-pulse" 
-                    : "text-[#27c93f]"
+                    ? "text-cyan-400 bg-cyan-500/10 border-cyan-500/20 animate-pulse" 
+                    : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                 }`}>
                   {aiStatus === "idle" ? "Ready" : aiStatus}
                 </span>
@@ -726,33 +765,35 @@ export default function IDELayout() {
             </div>
             {aiStatus !== "idle" && (
               <span className="text-[10px] text-slate-500 font-mono animate-pulse">
-                {aiStatus === "thinking" ? "compiling references..." : "generating code..."}
+                {aiStatus === "thinking" ? "synching references..." : "streaming code..."}
               </span>
             )}
           </div>
 
           {/* Chat Timeline (Scrollable Messages Area) */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs scrollbar-thin">
             {messages.map((msg) => (
               <div 
                 key={msg.id} 
-                className={`flex gap-2.5 max-w-[85%] ${msg.sender === "user" ? "ml-auto flex-row-reverse" : "mr-auto"}`}
+                className={`flex gap-3 max-w-[88%] animate-slide-up ${
+                  msg.sender === "user" ? "ml-auto flex-row-reverse" : "mr-auto"
+                }`}
               >
                 {/* Sender Avatar */}
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border ${
+                <div className={`w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border shadow-md ${
                   msg.sender === "user" 
-                    ? "bg-slate-700 border-slate-600 text-slate-300" 
-                    : "bg-purple-950/60 border-purple-800/50 text-purple-400"
+                    ? "bg-slate-700/80 border-slate-600/50 text-slate-300" 
+                    : "bg-purple-950/40 border-purple-800/40 text-purple-400"
                 }`}>
-                  {msg.sender === "user" ? <User className="w-3.5 h-3.5" /> : <Sparkles className="w-3 h-3" />}
+                  {msg.sender === "user" ? <User className="w-4 h-4" /> : <Sparkles className="w-3.5 h-3.5" />}
                 </div>
 
                 {/* Message Bubble */}
-                <div className="flex flex-col gap-1">
-                  <div className={`p-3 rounded-xl leading-relaxed whitespace-pre-wrap ${
+                <div className="flex flex-col gap-1.5 max-w-full">
+                  <div className={`p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap shadow-md ${
                     msg.sender === "user"
-                      ? "bg-indigo-600 text-white rounded-tr-none shadow-md"
-                      : "bg-[#26262a] text-slate-200 border border-[#2d2d30] rounded-tl-none shadow-md"
+                      ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-tr-none"
+                      : "glass-panel text-slate-200 border border-slate-800/60 rounded-tl-none"
                   }`}>
                     {/* Render Code Formatting in Chat Messages */}
                     {msg.text.includes("```") ? (
@@ -762,20 +803,26 @@ export default function IDELayout() {
                           const codeLines = block.split("\n");
                           const lang = codeLines[0].trim();
                           const actualCode = codeLines.slice(1).join("\n");
+                          const copyId = `${msg.id}-${idx}`;
                           return (
-                            <div key={idx} className="my-2 border border-slate-700 rounded-lg overflow-hidden font-mono bg-slate-900 text-slate-300 text-[11px]">
-                              <div className="bg-slate-950 px-3 py-1 text-[10px] text-slate-500 font-bold border-b border-slate-800 flex justify-between items-center">
-                                <span>{lang || "code"}</span>
+                            <div key={idx} className="my-2.5 border border-slate-800/80 rounded-xl overflow-hidden font-mono bg-[#0f0f12] text-slate-300 text-[11px] shadow-lg">
+                              <div className="bg-[#0c0c0e] px-3.5 py-1.5 text-[9px] text-slate-500 font-bold border-b border-slate-900/60 flex justify-between items-center select-none">
+                                <span className="uppercase tracking-wider text-slate-400">{lang || "code"}</span>
                                 <button 
-                                  onClick={() => navigator.clipboard.writeText(actualCode)}
+                                  onClick={() => handleCopyCode(actualCode, copyId)}
                                   type="button"
-                                  className="hover:text-white p-0.5 rounded transition-colors"
+                                  className="hover:text-white p-1 rounded-md hover:bg-slate-800/50 transition-colors flex items-center gap-1 cursor-pointer"
                                   title="Copy Code"
                                 >
-                                  <Copy className="w-3 h-3" />
+                                  {copiedCodeId === copyId ? (
+                                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                  <span>{copiedCodeId === copyId ? "Copied!" : "Copy"}</span>
                                 </button>
                               </div>
-                              <pre className="p-3 overflow-x-auto"><code>{actualCode}</code></pre>
+                              <pre className="p-3.5 overflow-x-auto select-text scrollbar-thin"><code>{actualCode}</code></pre>
                             </div>
                           );
                         }
@@ -786,19 +833,19 @@ export default function IDELayout() {
                       msg.text
                     )}
                   </div>
-                  <span className="text-[9px] text-slate-500 self-end px-1">{msg.timestamp}</span>
+                  <span className="text-[9px] text-slate-500 self-end px-1.5">{msg.timestamp}</span>
                 </div>
               </div>
             ))}
 
             {/* Streaming Typing Indicator Message */}
             {aiStatus === "typing" && streamingMessage && (
-              <div className="flex gap-2.5 max-w-[85%] mr-auto">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border bg-purple-950/60 border-purple-800/50 text-purple-400">
-                  <Sparkles className="w-3 h-3 animate-spin" />
+              <div className="flex gap-3 max-w-[88%] mr-auto animate-slide-up">
+                <div className="w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border bg-purple-950/40 border-purple-800/40 text-purple-400">
+                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  <div className="p-3 rounded-xl bg-[#26262a] text-slate-200 border border-[#2d2d30] rounded-tl-none shadow-md leading-relaxed whitespace-pre-wrap">
+                <div className="flex flex-col gap-1.5 max-w-full">
+                  <div className="p-3.5 rounded-2xl glass-panel text-slate-200 border border-slate-800/60 rounded-tl-none shadow-md leading-relaxed whitespace-pre-wrap">
                     {streamingMessage.includes("```") ? (
                       streamingMessage.split("```").map((block, idx) => {
                         if (idx % 2 === 1) {
@@ -806,11 +853,11 @@ export default function IDELayout() {
                           const lang = codeLines[0].trim();
                           const actualCode = codeLines.slice(1).join("\n");
                           return (
-                            <div key={idx} className="my-2 border border-slate-700 rounded-lg overflow-hidden font-mono bg-slate-900 text-slate-300 text-[11px]">
-                              <div className="bg-slate-950 px-3 py-1 text-[10px] text-slate-500 font-bold border-b border-slate-800 flex justify-between items-center">
-                                <span>{lang || "code"}</span>
+                            <div key={idx} className="my-2.5 border border-slate-800/80 rounded-xl overflow-hidden font-mono bg-[#0f0f12] text-slate-300 text-[11px]">
+                              <div className="bg-[#0c0c0e] px-3.5 py-1.5 text-[9px] text-slate-500 font-bold border-b border-slate-900/60 flex justify-between items-center select-none">
+                                <span className="uppercase tracking-wider text-slate-400">{lang || "code"}</span>
                               </div>
-                              <pre className="p-3 overflow-x-auto"><code>{actualCode}</code></pre>
+                              <pre className="p-3.5 overflow-x-auto scrollbar-thin"><code>{actualCode}</code></pre>
                             </div>
                           );
                         }
@@ -819,7 +866,7 @@ export default function IDELayout() {
                     ) : (
                       streamingMessage
                     )}
-                    <span className="inline-block w-1.5 h-3.5 ml-1 bg-purple-400 animate-pulse"></span>
+                    <span className="inline-block w-2 h-4 ml-1 bg-purple-500 animate-pulse rounded-sm align-middle"></span>
                   </div>
                 </div>
               </div>
@@ -827,14 +874,14 @@ export default function IDELayout() {
 
             {/* Thinking Indicator Animation */}
             {aiStatus === "thinking" && (
-              <div className="flex gap-2.5 max-w-[85%] mr-auto items-start">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border bg-purple-950/60 border-purple-800/50 text-purple-400 animate-pulse">
-                  <Sparkles className="w-3 h-3 animate-spin" />
+              <div className="flex gap-3 max-w-[88%] mr-auto items-start animate-slide-up">
+                <div className="w-7.5 h-7.5 rounded-xl flex items-center justify-center shrink-0 border bg-purple-950/40 border-purple-800/40 text-purple-400">
+                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
                 </div>
-                <div className="bg-[#26262a] border border-[#2d2d30] p-3 rounded-xl rounded-tl-none flex items-center gap-1">
-                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }}></span>
-                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
-                  <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }}></span>
+                <div className="glass-panel border border-slate-800/60 p-4.5 rounded-2xl rounded-tl-none flex items-center gap-1.5 shadow-md">
+                  <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "0ms" }}></span>
+                  <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "150ms" }}></span>
+                  <span className="w-2.5 h-2.5 bg-purple-400 rounded-full animate-bounce-typing" style={{ animationDelay: "300ms" }}></span>
                 </div>
               </div>
             )}
@@ -843,34 +890,34 @@ export default function IDELayout() {
           </div>
 
           {/* Quick Prompts Panel */}
-          <div className="px-4 py-2 border-t border-[#2d2d30] bg-[#1a1a1d] flex flex-col gap-1.5">
-            <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">Quick Prompts</span>
+          <div className="px-4 py-3.5 border-t border-[#202025] bg-[#0c0c0f]/80 flex flex-col gap-2 shrink-0">
+            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Quick Suggestions</span>
             <div className="flex flex-wrap gap-1.5">
               <button 
                 onClick={() => handleQuickPrompt("explain")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className="flex items-center gap-1 text-[10px] text-slate-300 hover:text-white bg-[#26262a] hover:bg-[#34343a] border border-[#3e3e44] hover:border-slate-500 px-2 py-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="flex items-center gap-1.5 text-[10px] text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50 px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)]"
               >
-                <Code className="w-3 h-3" />
-                <span>Explain file</span>
+                <Code className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                <span>Explain code</span>
               </button>
               <button 
                 onClick={() => handleQuickPrompt("refactor")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className="flex items-center gap-1 text-[10px] text-slate-300 hover:text-white bg-[#26262a] hover:bg-[#34343a] border border-[#3e3e44] hover:border-slate-500 px-2 py-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="flex items-center gap-1.5 text-[10px] text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50 px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)]"
               >
-                <Bug className="w-3 h-3" />
+                <Bug className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
                 <span>Refactor</span>
               </button>
               <button 
                 onClick={() => handleQuickPrompt("test")}
                 type="button"
                 disabled={aiStatus !== "idle"}
-                className="flex items-center gap-1 text-[10px] text-slate-300 hover:text-white bg-[#26262a] hover:bg-[#34343a] border border-[#3e3e44] hover:border-slate-500 px-2 py-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="flex items-center gap-1.5 text-[10px] text-slate-300 hover:text-white bg-[#1b1b22] hover:bg-purple-900/10 border border-[#2d2d35] hover:border-purple-500/50 px-2.5 py-1.5 rounded-xl transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow-[0_0_8px_rgba(168,85,247,0.15)]"
               >
-                <PlayCircle className="w-3 h-3" />
+                <Play className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
                 <span>Write Tests</span>
               </button>
             </div>
@@ -879,9 +926,9 @@ export default function IDELayout() {
           {/* Input Area */}
           <form 
             onSubmit={handleSendMessage} 
-            className="p-3 bg-[#1e1e21] border-t border-[#2d2d30] flex flex-col gap-2"
+            className="p-3.5 bg-[#141418] border-t border-[#202025] flex flex-col gap-2 shrink-0"
           >
-            <div className="relative flex items-end bg-[#26262a] border border-[#3e3e44] focus-within:border-purple-500 rounded-lg p-2 transition-colors">
+            <div className="relative flex items-end glass-input rounded-2xl p-2.5 focus-within:ring-1 focus-within:ring-purple-500/60 focus-within:border-transparent">
               <textarea
                 ref={messageInputRef}
                 value={inputMessage}
@@ -893,23 +940,23 @@ export default function IDELayout() {
                   }
                 }}
                 disabled={aiStatus !== "idle"}
-                placeholder="Ask AI Copilot to generate or explain..."
-                className="flex-1 max-h-24 min-h-[40px] resize-none bg-transparent text-white text-xs placeholder-slate-500 self-center focus:outline-none scrollbar-none py-1 pl-1"
+                placeholder="Ask Copilot to write, change, or review..."
+                className="flex-1 max-h-24 min-h-[44px] resize-none bg-transparent text-white text-xs placeholder-slate-500 self-center focus:outline-none scrollbar-none py-1 pl-1"
                 rows={1}
               />
               <button
                 type="submit"
                 disabled={!inputMessage.trim() || aiStatus !== "idle"}
-                className={`p-1.5 rounded-md transition-all self-center ${
+                className={`p-2 rounded-xl transition-all self-center hover-scale shrink-0 cursor-pointer ${
                   inputMessage.trim() && aiStatus === "idle"
-                    ? "bg-purple-600 text-white hover:bg-purple-700 shadow-sm cursor-pointer"
-                    : "text-slate-600 bg-transparent cursor-not-allowed"
+                    ? "bg-purple-600 text-white hover:bg-purple-500 shadow-md shadow-purple-950/20"
+                    : "text-slate-600 bg-[#1e1e23]/30 cursor-not-allowed border border-transparent"
                 }`}
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </button>
             </div>
-            <span className="text-[9px] text-slate-600 text-center">
+            <span className="text-[9px] text-slate-600 text-center select-none">
               AI Copilot can make mistakes. Verify critical code details.
             </span>
           </form>
@@ -918,35 +965,35 @@ export default function IDELayout() {
       </div>
 
       {/* 5. Status Bar (Bottom) */}
-      <footer className="h-6 bg-[#007ACC] flex items-center justify-between px-4 text-xs text-white select-none z-20 shrink-0 font-medium">
+      <footer className="h-6.5 bg-[#007ACC] flex items-center justify-between px-4 text-[11px] text-white select-none z-20 shrink-0 font-medium">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full">
+          <div className="flex items-center gap-1 hover:bg-[#1f8ad2] px-2.5 py-0.5 cursor-pointer h-full transition-colors">
             <GitBranch className="w-3.5 h-3.5" />
             <span>main</span>
           </div>
-          <div className="flex items-center gap-2 hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full">
-            <div className="flex items-center gap-0.5">
-              <span className="font-semibold">0</span>
+          <div className="flex items-center gap-2.5 hover:bg-[#1f8ad2] px-2.5 py-0.5 cursor-pointer h-full transition-colors">
+            <div className="flex items-center gap-1">
+              <span className="font-bold">0</span>
               <X className="w-3 h-3 text-red-200" />
             </div>
-            <div className="flex items-center gap-0.5">
-              <span className="font-semibold">0</span>
+            <div className="flex items-center gap-1">
+              <span className="font-bold">0</span>
               <Bug className="w-3 h-3 text-amber-200" />
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-blue-100 font-mono">
-            <TerminalSquare className="w-3.5 h-3.5" />
-            <span>AI Status: {aiStatus.toUpperCase()}</span>
+            <TerminalSquare className="w-3.5 h-3.5 shrink-0" />
+            <span>Status: {aiStatus.toUpperCase()}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden md:inline">Ln 14, Col 5</span>
-          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden md:inline">Spaces: 2</span>
-          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden sm:inline">UTF-8</span>
-          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full">TypeScript JSX</span>
-          <span className="hover:bg-[#1f8ad2] px-2.5 py-0.5 cursor-pointer h-full text-blue-100">
-            <Sparkles className={`w-3.5 h-3.5 inline mr-1 ${aiStatus !== "idle" ? "animate-spin text-amber-200" : ""}`} />
+          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors">Ln 14, Col 5</span>
+          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors">Spaces: 2</span>
+          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full hidden sm:inline transition-colors">UTF-8</span>
+          <span className="hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full transition-colors">TypeScript JSX</span>
+          <span className="hover:bg-[#1f8ad2] px-2.5 py-0.5 cursor-pointer h-full text-blue-100 transition-colors flex items-center gap-1">
+            <Sparkles className={`w-3.5 h-3.5 ${aiStatus !== "idle" ? "animate-spin text-amber-200" : ""}`} />
             <span>Copilot Sync'd</span>
           </span>
         </div>
