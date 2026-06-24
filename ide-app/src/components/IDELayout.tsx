@@ -118,6 +118,97 @@ export default function IDELayout() {
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   const [activeLeftTab, setActiveLeftTab] = useState<"explorer" | "search" | "git">("explorer");
 
+  // Panel resizing states
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(260);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(380);
+  const [bottomPanelHeight, setBottomPanelHeight] = useState(220);
+  const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
+  const [activeBottomTab, setActiveBottomTab] = useState<"terminal" | "output" | "problems">("terminal");
+  const [terminalInput, setTerminalInput] = useState("");
+  const [terminalHistory, setTerminalHistory] = useState<string[]>([
+    "Microsoft Windows [Version 10.0.22631]",
+    "(c) Microsoft Corporation. All rights reserved.",
+    "",
+    "c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "
+  ]);
+  const [outputLogs, setOutputLogs] = useState<string[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+
+  const [isResizingLeft, setIsResizingLeft] = useState(false);
+  const [isResizingRight, setIsResizingRight] = useState(false);
+  const [isResizingBottom, setIsResizingBottom] = useState(false);
+
+  // Mouse drag handlers for resizing panels
+  const startResizingLeft = (mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    setIsResizingLeft(true);
+    const startX = mouseDownEvent.clientX;
+    const startWidth = leftSidebarWidth;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const newWidth = startWidth + (mouseMoveEvent.clientX - startX);
+      if (newWidth >= 160 && newWidth <= 500) {
+        setLeftSidebarWidth(newWidth);
+      }
+    };
+
+    const stopDrag = () => {
+      setIsResizingLeft(false);
+      document.removeEventListener("mousemove", doDrag);
+      document.removeEventListener("mouseup", stopDrag);
+    };
+
+    document.addEventListener("mousemove", doDrag);
+    document.addEventListener("mouseup", stopDrag);
+  };
+
+  const startResizingRight = (mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    setIsResizingRight(true);
+    const startX = mouseDownEvent.clientX;
+    const startWidth = rightSidebarWidth;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const newWidth = startWidth - (mouseMoveEvent.clientX - startX);
+      if (newWidth >= 280 && newWidth <= 650) {
+        setRightSidebarWidth(newWidth);
+      }
+    };
+
+    const stopDrag = () => {
+      setIsResizingRight(false);
+      document.removeEventListener("mousemove", doDrag);
+      document.removeEventListener("mouseup", stopDrag);
+    };
+
+    document.addEventListener("mousemove", doDrag);
+    document.addEventListener("mouseup", stopDrag);
+  };
+
+  const startResizingBottom = (mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    setIsResizingBottom(true);
+    const startY = mouseDownEvent.clientY;
+    const startHeight = bottomPanelHeight;
+
+    const doDrag = (mouseMoveEvent: MouseEvent) => {
+      const newHeight = startHeight - (mouseMoveEvent.clientY - startY);
+      if (newHeight >= 100 && newHeight <= 550) {
+        setBottomPanelHeight(newHeight);
+      }
+    };
+
+    const stopDrag = () => {
+      setIsResizingBottom(false);
+      document.removeEventListener("mousemove", doDrag);
+      document.removeEventListener("mouseup", stopDrag);
+    };
+
+    document.addEventListener("mousemove", doDrag);
+    document.addEventListener("mouseup", stopDrag);
+  };
+
+
   // File explorer states
   const [files, setFiles] = useState<Record<string, MockFile>>(initialFiles);
   const [activeFilePath, setActiveFilePath] = useState<string>("src/components/IDELayout.tsx");
@@ -192,9 +283,39 @@ export default function IDELayout() {
     }
   };
 
-  // Run Code placeholder
+  // Run Code logic simulating dynamic console printing
   const handleRunCode = () => {
-    alert(`Executing build and running ${files[activeFilePath].name}... Output directed to dev console.`);
+    if (isRunning) return;
+    
+    setIsRunning(true);
+    setBottomPanelOpen(true);
+    setActiveBottomTab("output");
+    setOutputLogs([]);
+
+    const logLines = [
+      `[${new Date().toLocaleTimeString()}] Starting build process for ${files[activeFilePath].name}...`,
+      `[${new Date().toLocaleTimeString()}] Running typescript compilation & assets optimization...`,
+      `[${new Date().toLocaleTimeString()}] Vite v7.0.4 building for production...`,
+      `[${new Date().toLocaleTimeString()}] ✓ 32 modules transformed.`,
+      `[${new Date().toLocaleTimeString()}] dist/index.html                     0.39 kB │ gzip: 0.25 kB`,
+      `[${new Date().toLocaleTimeString()}] dist/assets/index-D7a8B9cE.css      8.42 kB │ gzip: 2.10 kB`,
+      `[${new Date().toLocaleTimeString()}] dist/assets/index-Bf9e42Ac.js     142.18 kB │ gzip: 46.50 kB`,
+      `[${new Date().toLocaleTimeString()}] ✓ built in 580ms`,
+      `[${new Date().toLocaleTimeString()}] Launching Tauri application container...`,
+      `[${new Date().toLocaleTimeString()}] Cod Code IDE window successfully mounted (Tauri backend initialized).`,
+      `[${new Date().toLocaleTimeString()}] Application is running at http://localhost:1420/`
+    ];
+
+    let currentLine = 0;
+    const interval = setInterval(() => {
+      if (currentLine < logLines.length) {
+        setOutputLogs(prev => [...prev, logLines[currentLine]]);
+        currentLine++;
+      } else {
+        clearInterval(interval);
+        setIsRunning(false);
+      }
+    }, 400);
   };
 
   // AI Prompt Helpers
@@ -311,7 +432,7 @@ export default function IDELayout() {
           </div>
           <div className="flex items-center gap-1.5 ml-2">
             <Terminal className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="font-semibold text-slate-300 tracking-wide font-mono">Antigravity Studio IDE</span>
+            <span className="font-semibold text-slate-300 tracking-wide font-mono">Cod Code IDE</span>
           </div>
         </div>
         
@@ -333,6 +454,15 @@ export default function IDELayout() {
             ) : (
               <Moon className="w-4 h-4 text-indigo-400 transition-transform duration-500 hover:-rotate-12" />
             )}
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => setBottomPanelOpen(prev => !prev)}
+            className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover-scale cursor-pointer transition-colors ${bottomPanelOpen ? "bg-[#25252b] text-indigo-400" : "hover:bg-slate-800/50"}`}
+            title="Toggle Bottom Console Panel"
+          >
+            <TerminalSquare className="w-4 h-4" />
           </button>
           
           <button 
@@ -448,9 +578,11 @@ export default function IDELayout() {
 
         {/* 2. Left Collapsible Sidebar */}
         <div 
-          className={`bg-[#16161a] border-r border-[#25252b] flex flex-col transition-all duration-300 ease-out overflow-hidden z-10 gpu-layer ${
-            leftSidebarOpen ? "w-64" : "w-0"
-          }`}
+          className="bg-[#16161a] border-r border-[#25252b] flex flex-col overflow-hidden z-10 gpu-layer"
+          style={{ 
+            width: leftSidebarOpen ? `${leftSidebarWidth}px` : 0,
+            transition: isResizingLeft ? 'none' : 'width 300ms ease-out'
+          }}
         >
           {activeLeftTab === "explorer" && (
             <div className="flex flex-col h-full text-xs">
@@ -607,110 +739,319 @@ export default function IDELayout() {
           )}
         </div>
 
+        {/* Left Sidebar drag divider */}
+        {leftSidebarOpen && (
+          <div
+            onMouseDown={startResizingLeft}
+            className="w-1 hover:w-1.5 bg-transparent hover:bg-indigo-500/50 active:bg-indigo-500 transition-all cursor-col-resize z-30 shrink-0"
+            title="Resize Sidebar"
+          />
+        )}
+
         {/* 3. Editor Workspace Area (Center) */}
-        <div className="flex-1 flex flex-col min-w-0 bg-[#131317] relative">
+        <div className="flex-1 flex flex-col min-w-0 bg-[#131317] relative h-full">
           
-          {/* Tab bar */}
-          <div className="h-10 bg-[#16161a] flex items-center overflow-x-auto border-b border-[#1b1b20] select-none scrollbar-none z-10 shrink-0">
-            {openTabs.map(tabPath => {
-              const file = files[tabPath] || { name: tabPath };
-              const isActive = tabPath === activeFilePath;
-              return (
-                <div
-                  key={tabPath}
-                  onClick={() => setActiveFilePath(tabPath)}
-                  className={`group h-full flex items-center gap-2.5 px-4.5 py-2 text-xs border-r border-[#1f1f25] cursor-pointer transition-all duration-300 relative ${
-                    isActive 
-                      ? "bg-[#131317] text-white font-medium border-t-2 border-indigo-500 shadow-inner" 
-                      : "bg-[#18181c]/60 text-slate-400 hover:bg-[#18181c] hover:text-slate-200"
+          {/* Top Editor Area */}
+          <div className="flex-1 flex flex-col min-h-0 w-full relative">
+            {/* Tab bar */}
+            <div className="h-10 bg-[#16161a] flex items-center overflow-x-auto border-b border-[#1b1b20] select-none scrollbar-none z-10 shrink-0">
+              {openTabs.map(tabPath => {
+                const file = files[tabPath] || { name: tabPath };
+                const isActive = tabPath === activeFilePath;
+                return (
+                  <div
+                    key={tabPath}
+                    onClick={() => setActiveFilePath(tabPath)}
+                    className={`group h-full flex items-center gap-2.5 px-4.5 py-2 text-xs border-r border-[#1f1f25] cursor-pointer transition-all duration-300 relative ${
+                      isActive 
+                        ? "bg-[#131317] text-white font-medium border-t-2 border-indigo-500 shadow-inner" 
+                        : "bg-[#18181c]/60 text-slate-400 hover:bg-[#18181c] hover:text-slate-200"
+                    }`}
+                  >
+                    {getFileIcon(file.name)}
+                    <span className="font-mono text-[11px]">{file.name}</span>
+                    <button
+                      onClick={(e) => handleCloseTab(e, tabPath)}
+                      className="p-0.5 rounded-full text-slate-500 hover:text-white hover:bg-slate-800/80 transition-colors ml-1"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Breadcrumb line */}
+            <div className="h-6.5 bg-[#131317] border-b border-slate-900 flex items-center px-4.5 text-[10px] text-slate-500 font-mono gap-1.5 shrink-0">
+              <span className="hover:text-slate-300 cursor-pointer">ide-app</span>
+              <ChevronRight className="w-3 h-3" />
+              <span className="hover:text-slate-300 cursor-pointer">src</span>
+              <ChevronRight className="w-3 h-3" />
+              {activeFile?.path?.includes("components") && (
+                <>
+                  <span className="hover:text-slate-300 cursor-pointer">components</span>
+                  <ChevronRight className="w-3 h-3" />
+                </>
+              )}
+              <span className="text-indigo-400 font-medium">{activeFile.name}</span>
+            </div>
+
+            {/* Monaco Editor Container */}
+            <div className="flex-1 w-full relative bg-[#1e1e1e]">
+              <Editor
+                height="100%"
+                path={activeFile.path}
+                language={activeFile.language}
+                value={activeFile.content}
+                theme={editorTheme}
+                onChange={handleEditorChange}
+                options={{
+                  fontSize: fontSize,
+                  minimap: { enabled: true },
+                  scrollbar: {
+                    verticalScrollbarSize: 6,
+                    horizontalScrollbarSize: 6,
+                    vertical: "visible",
+                    horizontal: "visible"
+                  },
+                  lineNumbers: "on",
+                  roundedSelection: true,
+                  scrollBeyondLastLine: false,
+                  readOnly: false,
+                  automaticLayout: true,
+                  cursorBlinking: "smooth",
+                  cursorSmoothCaretAnimation: "on",
+                  fontFamily: "Fira Code, Menlo, Monaco, Consolas, monospace",
+                  fontLigatures: true,
+                  renderLineHighlight: "all",
+                  quickSuggestions: { other: true, comments: true, strings: true },
+                  suggestOnTriggerCharacters: true
+                }}
+              />
+            </div>
+
+            {/* Code actions bar / Overlay options */}
+            <div className="absolute bottom-4 right-6 flex items-center gap-2 bg-[#1b1b22]/90 backdrop-blur border border-slate-800/80 py-1.5 px-3 rounded-xl shadow-xl shadow-black/40 text-[11px] text-slate-300 z-10 select-none">
+              <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wide pr-1.5 border-r border-slate-800 mr-1">Font Scale</span>
+              <button 
+                onClick={() => setFontSize(prev => Math.max(10, prev - 1))}
+                className="p-1 hover:bg-slate-800 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer"
+              >
+                -
+              </button>
+              <span className="font-mono text-indigo-400 font-semibold">{fontSize}px</span>
+              <button 
+                onClick={() => setFontSize(prev => Math.min(22, prev + 1))}
+                className="p-1 hover:bg-slate-800 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Bottom panel divider */}
+          {bottomPanelOpen && (
+            <div
+              onMouseDown={startResizingBottom}
+              className="h-1 hover:h-1.5 bg-transparent hover:bg-indigo-500/50 active:bg-indigo-500 transition-all cursor-row-resize z-30 shrink-0"
+              title="Resize Bottom Panel"
+            />
+          )}
+
+          {/* Bottom Panel */}
+          <div
+            className="bg-[#0d0d11] border-t border-[#202025] flex flex-col overflow-hidden z-20"
+            style={{ 
+              height: bottomPanelOpen ? `${bottomPanelHeight}px` : 0,
+              transition: isResizingBottom ? 'none' : 'height 300ms ease-out'
+            }}
+          >
+            {/* Bottom Panel Header */}
+            <div className="h-9 bg-[#141418] border-b border-[#202025] flex items-center justify-between px-4 text-xs font-semibold text-slate-400 select-none shrink-0">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveBottomTab("terminal")}
+                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
+                    activeBottomTab === "terminal" 
+                      ? "text-indigo-400 border-indigo-500 font-bold" 
+                      : "border-transparent hover:text-slate-200"
                   }`}
                 >
-                  {getFileIcon(file.name)}
-                  <span className="font-mono text-[11px]">{file.name}</span>
-                  <button
-                    onClick={(e) => handleCloseTab(e, tabPath)}
-                    className="p-0.5 rounded-full text-slate-500 hover:text-white hover:bg-slate-800/80 transition-colors ml-1"
+                  <Terminal className="w-3.5 h-3.5" />
+                  <span>Terminal</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setActiveBottomTab("output")}
+                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
+                    activeBottomTab === "output" 
+                      ? "text-indigo-400 border-indigo-500 font-bold" 
+                      : "border-transparent hover:text-slate-200"
+                  }`}
+                >
+                  <TerminalSquare className="w-3.5 h-3.5" />
+                  <span>Output</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveBottomTab("problems")}
+                  className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
+                    activeBottomTab === "problems" 
+                      ? "text-indigo-400 border-indigo-500 font-bold" 
+                      : "border-transparent hover:text-slate-200"
+                  }`}
+                >
+                  <Bug className="w-3.5 h-3.5" />
+                  <span>Problems</span>
+                </button>
+              </div>
+
+              {/* Window action buttons (Clear & Close) */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (activeBottomTab === "terminal") {
+                      setTerminalHistory([
+                        "Microsoft Windows [Version 10.0.22631]",
+                        "(c) Microsoft Corporation. All rights reserved.",
+                        "",
+                        "c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "
+                      ]);
+                    } else if (activeBottomTab === "output") {
+                      setOutputLogs([]);
+                    }
+                  }}
+                  className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white cursor-pointer"
+                  title="Clear Console Output"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBottomPanelOpen(false)}
+                  className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white cursor-pointer"
+                  title="Close Panel"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Panel Content */}
+            <div className="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed scrollbar-thin select-text">
+              {activeBottomTab === "terminal" && (
+                <div className="text-slate-300 h-full flex flex-col">
+                  <div className="flex-1 overflow-y-auto mb-1 whitespace-pre-wrap">
+                    {terminalHistory.map((line, idx) => (
+                      <div key={idx}>{line}</div>
+                    ))}
+                  </div>
+                  {/* Interactive Input Line */}
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!terminalInput.trim()) return;
+                      const cmd = terminalInput.trim();
+                      let reply = "";
+                      
+                      if (cmd === "cls" || cmd === "clear") {
+                        setTerminalHistory(["c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "]);
+                        setTerminalInput("");
+                        return;
+                      } else if (cmd === "npm run dev" || cmd === "npm start" || cmd === "run") {
+                        handleRunCode();
+                        setTerminalInput("");
+                        return;
+                      } else if (cmd === "git status") {
+                        reply = "On branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   src/components/IDELayout.tsx\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")";
+                      } else if (cmd.startsWith("help")) {
+                        reply = "Available commands: cls, clear, npm run dev, run, git status, help, node -v, echo <text>";
+                      } else if (cmd === "node -v") {
+                        reply = "v20.11.0";
+                      } else if (cmd.startsWith("echo ")) {
+                        reply = cmd.substring(5);
+                      } else {
+                        reply = `'${cmd.split(" ")[0]}' is not recognized as an internal or external command,\noperable program or batch file. Type 'help' for commands.`;
+                      }
+
+                      setTerminalHistory(prev => {
+                        const hist = [...prev];
+                        if (hist.length > 0) {
+                          hist[hist.length - 1] = hist[hist.length - 1] + cmd;
+                        }
+                        if (reply) {
+                          hist.push(reply);
+                        }
+                        hist.push("c:\\Users\\DYD\\Desktop\\IDE\\ide-app> ");
+                        return hist;
+                      });
+                      setTerminalInput("");
+                    }}
+                    className="flex items-center text-slate-300"
                   >
-                    <X className="w-3 h-3" />
-                  </button>
+                    <span className="shrink-0">c:\Users\DYD\Desktop\IDE\ide-app&gt;&nbsp;</span>
+                    <input
+                      type="text"
+                      value={terminalInput}
+                      onChange={(e) => setTerminalInput(e.target.value)}
+                      className="flex-1 bg-transparent text-slate-300 focus:outline-none border-none outline-none caret-indigo-400"
+                    />
+                  </form>
                 </div>
-              );
-            })}
-          </div>
+              )}
 
-          {/* Breadcrumb line */}
-          <div className="h-6.5 bg-[#131317] border-b border-slate-900 flex items-center px-4.5 text-[10px] text-slate-500 font-mono gap-1.5 shrink-0">
-            <span className="hover:text-slate-300 cursor-pointer">ide-app</span>
-            <ChevronRight className="w-3 h-3" />
-            <span className="hover:text-slate-300 cursor-pointer">src</span>
-            <ChevronRight className="w-3 h-3" />
-            {activeFile.path.includes("components") && (
-              <>
-                <span className="hover:text-slate-300 cursor-pointer">components</span>
-                <ChevronRight className="w-3 h-3" />
-              </>
-            )}
-            <span className="text-indigo-400 font-medium">{activeFile.name}</span>
-          </div>
+              {activeBottomTab === "output" && (
+                <div className="text-slate-300 whitespace-pre-wrap">
+                  {outputLogs.length === 0 ? (
+                    <span className="text-slate-500 italic select-none">No build logs. Click 'Run App' in the top bar to run compilation...</span>
+                  ) : (
+                    outputLogs.map((log, idx) => {
+                      if (!log) return null;
+                      const hasCheck = log.includes("✓");
+                      const hasLaunch = log.includes("Launching") || log.includes("Running");
+                      return (
+                        <div 
+                          key={idx} 
+                          className={hasCheck ? "text-emerald-400" : hasLaunch ? "text-indigo-400" : "text-slate-300"}
+                        >
+                          {log}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
 
-          {/* Monaco Editor Container */}
-          <div className="flex-1 w-full relative bg-[#1e1e1e]">
-            <Editor
-              height="100%"
-              path={activeFile.path}
-              language={activeFile.language}
-              value={activeFile.content}
-              theme={editorTheme}
-              onChange={handleEditorChange}
-              options={{
-                fontSize: fontSize,
-                minimap: { enabled: true },
-                scrollbar: {
-                  verticalScrollbarSize: 6,
-                  horizontalScrollbarSize: 6,
-                  vertical: "visible",
-                  horizontal: "visible"
-                },
-                lineNumbers: "on",
-                roundedSelection: true,
-                scrollBeyondLastLine: false,
-                readOnly: false,
-                automaticLayout: true,
-                cursorBlinking: "smooth",
-                cursorSmoothCaretAnimation: "on",
-                fontFamily: "Fira Code, Menlo, Monaco, Consolas, monospace",
-                fontLigatures: true,
-                renderLineHighlight: "all",
-                quickSuggestions: { other: true, comments: true, strings: true },
-                suggestOnTriggerCharacters: true
-              }}
-            />
-          </div>
-
-          {/* Code actions bar / Overlay options */}
-          <div className="absolute bottom-4 right-6 flex items-center gap-2 bg-[#1b1b22]/90 backdrop-blur border border-slate-800/80 py-1.5 px-3 rounded-xl shadow-xl shadow-black/40 text-[11px] text-slate-300 z-10 select-none">
-            <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wide pr-1.5 border-r border-slate-800 mr-1">Font Scale</span>
-            <button 
-              onClick={() => setFontSize(prev => Math.max(10, prev - 1))}
-              className="p-1 hover:bg-slate-800 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer"
-            >
-              -
-            </button>
-            <span className="font-mono text-indigo-400 font-semibold">{fontSize}px</span>
-            <button 
-              onClick={() => setFontSize(prev => Math.min(22, prev + 1))}
-              className="p-1 hover:bg-slate-800 rounded-md w-5 h-5 flex items-center justify-center font-bold font-mono transition-colors cursor-pointer"
-            >
-              +
-            </button>
+              {activeBottomTab === "problems" && (
+                <div className="text-slate-400 select-none flex flex-col items-center justify-center h-full gap-2">
+                  <Bug className="w-8 h-8 text-slate-600 animate-pulse" />
+                  <span>No problems have been detected in the workspace. Clean build!</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
+        {/* Right Sidebar drag divider */}
+        {rightSidebarOpen && (
+          <div
+            onMouseDown={startResizingRight}
+            className="w-1 hover:w-1.5 bg-transparent hover:bg-purple-500/50 active:bg-purple-500 transition-all cursor-col-resize z-30 shrink-0"
+            title="Resize AI Panel"
+          />
+        )}
+
         {/* 4. Right Collapsible Sidebar (AI Chat Interface) */}
         <div 
-          className={`bg-[#121216] border-l border-[#25252b] flex flex-col transition-all duration-300 ease-out overflow-hidden relative z-10 gpu-layer ${
-            rightSidebarOpen ? "w-[380px]" : "w-0"
-          }`}
+          className="bg-[#121216] border-l border-[#25252b] flex flex-col overflow-hidden relative z-10 gpu-layer"
+          style={{ 
+            width: rightSidebarOpen ? `${rightSidebarWidth}px` : 0,
+            transition: isResizingRight ? 'none' : 'width 300ms ease-out'
+          }}
         >
           {/* Header with gradient flow */}
           <div className="p-4 bg-gradient-to-r from-[#17171d] via-[#1a1a24] to-[#121217] border-b border-[#25252b] flex items-center justify-between">
@@ -981,9 +1322,13 @@ export default function IDELayout() {
               <Bug className="w-3 h-3 text-amber-200" />
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 text-[10px] text-blue-100 font-mono">
+          <div 
+            onClick={() => setBottomPanelOpen(prev => !prev)}
+            className="hidden sm:flex items-center gap-1.5 text-[10px] text-blue-100 font-mono hover:bg-[#1f8ad2] px-2 py-0.5 cursor-pointer h-full transition-colors"
+            title="Toggle Bottom Console Panel"
+          >
             <TerminalSquare className="w-3.5 h-3.5 shrink-0" />
-            <span>Status: {aiStatus.toUpperCase()}</span>
+            <span>Console: {bottomPanelOpen ? "OPEN" : "CLOSED"}</span>
           </div>
         </div>
 
