@@ -34,7 +34,9 @@ import {
   PhoneOff,
   MonitorUp,
   Volume2,
-  UserPlus
+  UserPlus,
+  LogOut,
+  LogIn
 } from "lucide-react";
 
 interface MockFile {
@@ -261,6 +263,8 @@ export default function IDELayout() {
   const [isCallActive, setIsCallActive] = useState(true);
   const [isCallPanelOpen, setIsCallPanelOpen] = useState(true);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
 
   // AI Chat states
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -770,10 +774,86 @@ export default function IDELayout() {
             </button>
           </div>
 
-          <div className="flex flex-col gap-2 w-full items-center">
-            <button className={`p-2.5 rounded-xl transition-all cursor-pointer hover-scale ${editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100"}`} title="User Profile">
+          <div className="flex flex-col gap-2 w-full items-center relative">
+            <button 
+              onClick={() => setIsAccountMenuOpen(prev => !prev)}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer hover-scale ${
+                isAccountMenuOpen 
+                  ? (editorTheme === "vs-dark" ? "text-indigo-400 bg-[#1a1a24] shadow-inner" : "text-indigo-600 bg-indigo-50 shadow-sm")
+                  : (editorTheme === "vs-dark" ? "hover:text-slate-200 hover:bg-slate-900/60" : "hover:text-slate-800 hover:bg-slate-100")
+              }`} 
+              title="Accounts"
+            >
               <User className="w-5.5 h-5.5" />
             </button>
+            
+            {/* Account Context Menu */}
+            {isAccountMenuOpen && (
+              <div className={`absolute bottom-12 left-14 w-64 rounded-xl shadow-2xl border flex flex-col overflow-hidden animate-slide-up z-50 ${
+                editorTheme === "vs-dark" 
+                  ? "bg-[#1e1e24] border-slate-700/60 text-slate-300" 
+                  : "bg-white border-slate-200 text-slate-700"
+              }`}>
+                {!isSignedIn ? (
+                  <>
+                    <div className={`px-4 py-3 border-b text-xs font-semibold ${editorTheme === "vs-dark" ? "border-slate-800/80 text-slate-400" : "border-slate-100 text-slate-500"}`}>
+                      Sign in to sync settings and use AI Copilot
+                    </div>
+                    <button 
+                      onClick={() => {
+                        setIsSignedIn(true);
+                        setIsAccountMenuOpen(false);
+                        alert("Redirecting to GitHub OAuth...");
+                      }}
+                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
+                        editorTheme === "vs-dark" ? "hover:bg-slate-800/50 hover:text-white" : "hover:bg-slate-50 hover:text-indigo-600"
+                      }`}
+                    >
+                      <GitBranch className="w-4 h-4" />
+                      <span>Sign in with GitHub</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setIsSignedIn(true);
+                        setIsAccountMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
+                        editorTheme === "vs-dark" ? "hover:bg-slate-800/50 hover:text-white" : "hover:bg-slate-50 hover:text-indigo-600"
+                      }`}
+                    >
+                      <LogIn className="w-4 h-4" />
+                      <span>Sign in with Email</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className={`px-4 py-3 border-b text-sm font-semibold flex items-center gap-2 ${editorTheme === "vs-dark" ? "border-slate-800/80 text-white" : "border-slate-100 text-slate-800"}`}>
+                      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Owner" className="w-6 h-6 rounded-full" alt="avatar" />
+                      <span>owner@antigravity.studio</span>
+                    </div>
+                    <button className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
+                      editorTheme === "vs-dark" ? "hover:bg-slate-800/50 hover:text-white" : "hover:bg-slate-50 hover:text-indigo-600"
+                    }`}>
+                      <Settings className="w-4 h-4" />
+                      <span>Manage Account</span>
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setIsSignedIn(false);
+                        setIsAccountMenuOpen(false);
+                      }}
+                      className={`flex items-center gap-2.5 px-4 py-3 text-sm transition-colors cursor-pointer text-left ${
+                        editorTheme === "vs-dark" ? "hover:bg-slate-800/50 text-red-400 hover:text-red-300" : "hover:bg-slate-50 text-red-500 hover:text-red-600"
+                      }`}
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
             <button 
               onClick={() => setShowSettings(true)}
               className={`p-2.5 rounded-xl transition-all cursor-pointer hover-scale ${
