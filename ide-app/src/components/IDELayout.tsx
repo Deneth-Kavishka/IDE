@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
+import ShareModal from "./ShareModal";
 import {
   Folder,
   Search,
@@ -27,7 +28,13 @@ import {
   Zap,
   CheckCheck,
   Mic,
-  MicOff
+  MicOff,
+  PhoneCall,
+  Video,
+  PhoneOff,
+  MonitorUp,
+  Volume2,
+  UserPlus
 } from "lucide-react";
 
 interface MockFile {
@@ -249,6 +256,11 @@ export default function IDELayout() {
 
   // UI state for clipboard copy confirmations
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+
+  // Collaborative Call states
+  const [isCallActive, setIsCallActive] = useState(true);
+  const [isCallPanelOpen, setIsCallPanelOpen] = useState(true);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // AI Chat states
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -578,6 +590,23 @@ export default function IDELayout() {
           <span className={`text-xs font-mono select-all transition-colors duration-250 ${editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"}`}>{activeFile?.path}</span>
         </div>
 
+        {/* Multiplayer Avatars & Share */}
+        <div className="flex items-center ml-auto mr-4 gap-3">
+          <div className="flex -space-x-2">
+            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-indigo-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4" alt="Alex" title="Alex is editing IDELayout.tsx" />
+            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-emerald-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede" alt="Sam" title="Sam is editing App.css" />
+            <div className="w-7 h-7 rounded-full border-2 border-purple-500/80 bg-purple-950 flex items-center justify-center text-[10px] font-bold text-purple-300 z-10 shadow-[0_0_8px_rgba(168,85,247,0.4)]" title="AI Agent is active">AI</div>
+          </div>
+          <button 
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold transition-all shadow-md shadow-indigo-900/30 hover:shadow-[0_0_10px_rgba(99,102,241,0.4)] cursor-pointer"
+            title="Invite Collaborators"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Share</span>
+          </button>
+        </div>
+
         {/* Action icons */}
         <div className="flex items-center gap-2">
           <button 
@@ -698,7 +727,32 @@ export default function IDELayout() {
               )}
             </button>
 
-            <hr className={`w-8 my-1.5 transition-colors duration-250 ${editorTheme === "vs-dark" ? "border-slate-800/80" : "border-slate-200"}`} />
+            {/* Collaborative Call Toggle */}
+            <button
+              onClick={() => {
+                if (!isCallActive) {
+                  setIsCallActive(true);
+                  setIsCallPanelOpen(true);
+                } else {
+                  setIsCallPanelOpen(!isCallPanelOpen);
+                }
+              }}
+              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
+                isCallActive && isCallPanelOpen
+                  ? "text-emerald-400 bg-emerald-950/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]" 
+                  : isCallActive
+                  ? "text-emerald-500 hover:text-emerald-400 hover:bg-slate-900/60 animate-pulse"
+                  : "hover:text-slate-200 hover:bg-slate-900/60 text-slate-400"
+              }`}
+              title="Collaborative Call"
+            >
+              <PhoneCall className="w-5.5 h-5.5" />
+              {isCallActive && isCallPanelOpen && (
+                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-emerald-500 rounded-r shadow-[0_0_8px_#10b981]"></span>
+              )}
+            </button>
+
+            <hr className="w-8 border-slate-800/80 my-1.5" />
 
             {/* AI Assistant Sidebar Toggle (Activates right sidebar with pulse glow) */}
             <button
@@ -1272,6 +1326,81 @@ export default function IDELayout() {
               )}
             </div>
           </div>
+
+          {/* Floating Call UI Panel */}
+          {isCallActive && isCallPanelOpen && (
+            <div className="absolute top-6 right-6 w-72 bg-[#141419]/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl shadow-black/60 z-40 overflow-hidden flex flex-col animate-slide-up">
+              {/* Call Header */}
+              <div className="bg-[#1b1b22] px-4 py-2.5 border-b border-slate-800/80 flex items-center justify-between cursor-move select-none">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">Collab Session</span>
+                </div>
+                <button 
+                  onClick={() => setIsCallPanelOpen(false)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              {/* Call Video/Avatars Grid */}
+              <div className="p-4 grid grid-cols-2 gap-3 bg-[#0d0d10]/40">
+                {/* User 1 */}
+                <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-800/50 border-2 border-emerald-500/50 flex flex-col items-center justify-center group shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4" className="w-14 h-14 rounded-full" alt="Alex" />
+                  <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
+                    <span className="text-[9px] font-medium text-white truncate">Alex</span>
+                    <Mic className="w-2.5 h-2.5 text-emerald-400" />
+                  </div>
+                </div>
+                {/* User 2 */}
+                <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-800/50 border border-slate-700/50 flex flex-col items-center justify-center group">
+                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede" className="w-14 h-14 rounded-full opacity-80" alt="Sam" />
+                  <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
+                    <span className="text-[9px] font-medium text-white truncate">Sam</span>
+                    <MicOff className="w-2.5 h-2.5 text-red-400" />
+                  </div>
+                </div>
+                {/* AI Agent Avatar */}
+                <div className="relative aspect-square rounded-xl overflow-hidden bg-purple-950/20 border-2 border-purple-500/50 flex flex-col items-center justify-center group shadow-[0_0_15px_rgba(168,85,247,0.15)] col-span-2 h-28">
+                  <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center border-2 border-purple-400/50 animate-pulse-glow-purple">
+                     <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="absolute bottom-2 left-3 right-3 bg-black/60 backdrop-blur-md rounded-lg px-2 py-1 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-purple-300">Agent Alpha</span>
+                    <Volume2 className="w-3 h-3 text-emerald-400 animate-pulse" />
+                  </div>
+                  {/* Audio wave mock */}
+                  <div className="absolute top-3 right-3 flex gap-0.5">
+                    <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></span>
+                    <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "100ms"}}></span>
+                    <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "200ms"}}></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Call Controls */}
+              <div className="bg-[#1b1b22] p-3 flex justify-center gap-3 border-t border-slate-800/80">
+                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Mute">
+                  <Mic className="w-4.5 h-4.5" />
+                </button>
+                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Deafen">
+                  <Volume2 className="w-4.5 h-4.5" />
+                </button>
+                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Share Screen">
+                  <MonitorUp className="w-4.5 h-4.5" />
+                </button>
+                <button 
+                  onClick={() => setIsCallActive(false)}
+                  className="p-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/40 transition-colors cursor-pointer" 
+                  title="Disconnect"
+                >
+                  <PhoneOff className="w-4.5 h-4.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Sidebar drag divider */}
@@ -1673,282 +1802,10 @@ export default function IDELayout() {
         </div>
       </footer>
 
-      {/* 6. Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="settings-glass-panel w-full max-w-2xl h-[450px] rounded-2xl flex flex-col overflow-hidden shadow-2xl relative animate-slide-up">
-            
-            {/* Modal Header */}
-            <div className={`px-5 py-4 border-b flex items-center justify-between transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "border-slate-800/80 text-white" : "border-slate-200 text-slate-800"
-            }`}>
-              <div className="flex items-center gap-2">
-                <Settings className={`w-5 h-5 ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`} />
-                <span className="font-bold text-sm tracking-wide">Cod Code IDE User Settings</span>
-              </div>
-              <button 
-                onClick={() => setShowSettings(false)}
-                className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-                  editorTheme === "vs-dark" ? "hover:bg-slate-800 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
-                }`}
-                title="Close settings"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="flex-1 flex overflow-hidden">
-              
-              {/* Left Settings Sidebar Tabs */}
-              <div className={`w-48 shrink-0 p-3 flex flex-col gap-1 border-r transition-colors duration-250 ${
-                editorTheme === "vs-dark" ? "bg-[#18181c]/40 border-slate-800/80" : "bg-[#f9fafb] border-slate-200"
-              }`}>
-                <button
-                  onClick={() => setActiveSettingsTab("editor")}
-                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
-                    activeSettingsTab === "editor"
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
-                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
-                  }`}
-                >
-                  Editor Configuration
-                </button>
-                <button
-                  onClick={() => setActiveSettingsTab("interface")}
-                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
-                    activeSettingsTab === "interface"
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
-                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
-                  }`}
-                >
-                  Interface & Layout
-                </button>
-                <button
-                  onClick={() => setActiveSettingsTab("ai")}
-                  className={`w-full py-2 px-3 rounded-lg text-left text-xs font-semibold transition-all cursor-pointer ${
-                    activeSettingsTab === "ai"
-                      ? "bg-indigo-600 text-white shadow-md shadow-indigo-950/20"
-                      : (editorTheme === "vs-dark" ? "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200" : "text-slate-600 hover:bg-slate-200/50 hover:text-slate-900")
-                  }`}
-                >
-                  AI Assistant Config
-                </button>
-              </div>
-
-              {/* Right Settings Configuration Form */}
-              <div className={`flex-1 p-5 overflow-y-auto text-xs space-y-5 transition-colors duration-250 ${
-                editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-700"
-              }`}>
-                {activeSettingsTab === "editor" && (
-                  <>
-                    <div className="border-b pb-3 border-transparent">
-                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>Text Editor Customization</h3>
-                      <p className="text-[10px] text-slate-500">Tune the core code workspace editor configuration parameters.</p>
-                    </div>
-
-                    {/* Font Size Preference */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold block">Font Size</span>
-                        <span className="text-[10px] text-slate-500 block">Controls the size of editor text font (in pixels).</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="range"
-                          min="10"
-                          max="22"
-                          value={fontSize}
-                          onChange={(e) => setFontSize(parseInt(e.target.value))}
-                          className="w-24 accent-indigo-500 cursor-ew-resize"
-                        />
-                        <span className={`w-8 text-center font-bold font-mono ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`}>{fontSize}px</span>
-                      </div>
-                    </div>
-
-                    {/* Word Wrap Preference */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold block">Word Wrap</span>
-                        <span className="text-[10px] text-slate-500 block">Wrap long lines to fit the current viewport size.</span>
-                      </div>
-                      <button
-                        onClick={() => setWordWrap(prev => prev === "on" ? "off" : "on")}
-                        className={`w-10 h-5.5 rounded-full p-0.5 transition-colors duration-300 cursor-pointer ${
-                          wordWrap === "on" ? "bg-indigo-600" : "bg-slate-400"
-                        }`}
-                      >
-                        <div className={`bg-white w-4.5 h-4.5 rounded-full shadow-md transform transition-transform duration-300 ${
-                          wordWrap === "on" ? "translate-x-4.5" : "translate-x-0"
-                        }`} />
-                      </button>
-                    </div>
-
-                    {/* Minimap Preference */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold block">Show Minimap</span>
-                        <span className="text-[10px] text-slate-500 block">Render a mini visual code outline on the right edge.</span>
-                      </div>
-                      <button
-                        onClick={() => setMinimapEnabled(prev => !prev)}
-                        className={`w-10 h-5.5 rounded-full p-0.5 transition-colors duration-300 cursor-pointer ${
-                          minimapEnabled ? "bg-indigo-600" : "bg-slate-400"
-                        }`}
-                      >
-                        <div className={`bg-white w-4.5 h-4.5 rounded-full shadow-md transform transition-transform duration-300 ${
-                          minimapEnabled ? "translate-x-4.5" : "translate-x-0"
-                        }`} />
-                      </button>
-                    </div>
-
-                    {/* Tab Size Preference */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold block">Tab Space Spacing</span>
-                        <span className="text-[10px] text-slate-500 block">Configure number of spaces equal to a single indent press.</span>
-                      </div>
-                      <select
-                        value={tabSize}
-                        onChange={(e) => setTabSize(parseInt(e.target.value))}
-                        className={`rounded-lg px-2.5 py-1 text-xs border focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-semibold ${
-                          editorTheme === "vs-dark"
-                            ? "bg-[#18181c] border-slate-800 text-slate-200"
-                            : "bg-white border-slate-200 text-slate-800"
-                        }`}
-                      >
-                        <option value={2}>2 spaces</option>
-                        <option value={4}>4 spaces</option>
-                        <option value={8}>8 spaces</option>
-                      </select>
-                    </div>
-
-                    {/* Cursor Blinking Preference */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold block">Cursor Blinking Animation</span>
-                        <span className="text-[10px] text-slate-500 block">Customize animation style for input cursor lines.</span>
-                      </div>
-                      <select
-                        value={cursorBlinking}
-                        onChange={(e) => setCursorBlinking(e.target.value as any)}
-                        className={`rounded-lg px-2.5 py-1 text-xs border focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-semibold ${
-                          editorTheme === "vs-dark"
-                            ? "bg-[#18181c] border-slate-800 text-slate-200"
-                            : "bg-white border-slate-200 text-slate-800"
-                        }`}
-                      >
-                        <option value="smooth">Smooth Breathe</option>
-                        <option value="blink">Standard Blink</option>
-                        <option value="solid">Solid Block</option>
-                        <option value="expand">Expand Slide</option>
-                      </select>
-                    </div>
-                  </>
-                )}
-
-                {activeSettingsTab === "interface" && (
-                  <>
-                    <div className="border-b pb-3 border-transparent">
-                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>IDE Interface Parameters</h3>
-                      <p className="text-[10px] text-slate-500">Customize the layout panels and visual aesthetics of the window shell.</p>
-                    </div>
-
-                    {/* Color Theme Selector */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold block">IDE Theme Mode</span>
-                        <span className="text-[10px] text-slate-500 block">Switch workspace colors completely between dark and light modes.</span>
-                      </div>
-                      <select
-                        value={editorTheme}
-                        onChange={(e) => setEditorTheme(e.target.value as any)}
-                        className={`rounded-lg px-2.5 py-1 text-xs border focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-semibold ${
-                          editorTheme === "vs-dark"
-                            ? "bg-[#18181c] border-slate-800 text-slate-200"
-                            : "bg-white border-slate-200 text-slate-800"
-                        }`}
-                      >
-                        <option value="vs-dark">Dracula Vibrant Dark</option>
-                        <option value="light">Premium HSL Light</option>
-                      </select>
-                    </div>
-
-                    {/* Auto Save Interface Switch */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold block">Auto Save Changes</span>
-                        <span className="text-[10px] text-slate-500 block">Automatically persist editor code edits on keystrokes.</span>
-                      </div>
-                      <button
-                        onClick={() => setAutoSave(prev => !prev)}
-                        className={`w-10 h-5.5 rounded-full p-0.5 transition-colors duration-300 cursor-pointer ${
-                          autoSave ? "bg-indigo-600" : "bg-slate-400"
-                        }`}
-                      >
-                        <div className={`bg-white w-4.5 h-4.5 rounded-full shadow-md transform transition-transform duration-300 ${
-                          autoSave ? "translate-x-4.5" : "translate-x-0"
-                        }`} />
-                      </button>
-                    </div>
-
-                    {/* Reset Panel Layout Defaults */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold block">Reset Pane Widths</span>
-                        <span className="text-[10px] text-slate-500 block">Restore sidebar drag splits back to standard dimensions.</span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setLeftSidebarWidth(260);
-                          setRightSidebarWidth(380);
-                          setBottomPanelHeight(220);
-                        }}
-                        className={`px-3 py-1.5 rounded-lg border font-semibold hover-scale cursor-pointer ${
-                          editorTheme === "vs-dark"
-                            ? "bg-[#1b1b22] border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800/40"
-                            : "bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                        }`}
-                      >
-                        Reset Layout
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {activeSettingsTab === "ai" && (
-                  <>
-                    <div className="border-b pb-3 border-transparent">
-                      <h3 className={`text-[13px] font-bold mb-1.5 ${editorTheme === "vs-dark" ? "text-slate-100" : "text-slate-800"}`}>AI Chat & Copilot Configuration</h3>
-                      <p className="text-[10px] text-slate-500">Configure parameters regulating AI auto-generation models.</p>
-                    </div>
-
-                    <div className="p-4 rounded-xl border flex flex-col items-center justify-center text-center gap-2 border-dashed border-indigo-500/35 bg-indigo-500/5">
-                      <Sparkles className="w-8 h-8 text-indigo-400 animate-pulse" />
-                      <span className="font-semibold">AI Assistant is Sync'd & Connected</span>
-                      <p className="text-[10px] text-slate-500 max-w-sm">Coding suggestions are powered by Gemini 1.5 Flash API directly. Workspace files are analyzed locally to enhance suggestions context.</p>
-                    </div>
-                  </>
-                )}
-              </div>
-
-            </div>
-
-            {/* Modal Footer */}
-            <div className={`px-5 py-3 border-t flex justify-end transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "bg-[#101014] border-slate-800/80" : "bg-[#f9fafb] border-slate-200"
-            }`}>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer shadow-md hover-scale"
-              >
-                Close Settings
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
+      <ShareModal 
+        isOpen={isShareModalOpen} 
+        onClose={() => setIsShareModalOpen(false)} 
+      />
     </div>
   );
 }
