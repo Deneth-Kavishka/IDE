@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Editor from "@monaco-editor/react";
+import ShareModal from "./ShareModal";
 import {
   Folder,
   Search,
@@ -27,7 +28,13 @@ import {
   Zap,
   CheckCheck,
   Mic,
-  MicOff
+  MicOff,
+  PhoneCall,
+  Video,
+  PhoneOff,
+  MonitorUp,
+  Volume2,
+  UserPlus
 } from "lucide-react";
 
 interface MockFile {
@@ -140,6 +147,11 @@ export default function IDELayout() {
 
   // UI state for clipboard copy confirmations
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+
+  // Collaborative Call states
+  const [isCallActive, setIsCallActive] = useState(true);
+  const [isCallPanelOpen, setIsCallPanelOpen] = useState(true);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   // AI Chat states
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -423,6 +435,23 @@ export default function IDELayout() {
           <span className="text-slate-300 text-xs font-mono select-all">{activeFile.path}</span>
         </div>
 
+        {/* Multiplayer Avatars & Share */}
+        <div className="flex items-center ml-auto mr-4 gap-3">
+          <div className="flex -space-x-2">
+            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-indigo-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4" alt="Alex" title="Alex is editing IDELayout.tsx" />
+            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-emerald-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede" alt="Sam" title="Sam is editing App.css" />
+            <div className="w-7 h-7 rounded-full border-2 border-purple-500/80 bg-purple-950 flex items-center justify-center text-[10px] font-bold text-purple-300 z-10 shadow-[0_0_8px_rgba(168,85,247,0.4)]" title="AI Agent is active">AI</div>
+          </div>
+          <button 
+            onClick={() => setIsShareModalOpen(true)}
+            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded-lg text-[11px] font-bold transition-all shadow-md shadow-indigo-900/30 hover:shadow-[0_0_10px_rgba(99,102,241,0.4)] cursor-pointer"
+            title="Invite Collaborators"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Share</span>
+          </button>
+        </div>
+
         {/* Action icons */}
         <div className="flex items-center gap-2">
           <button 
@@ -519,6 +548,31 @@ export default function IDELayout() {
               <GitBranch className="w-5.5 h-5.5" />
               {leftSidebarOpen && activeLeftTab === "git" && (
                 <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-indigo-500 rounded-r shadow-[0_0_8px_#6366f1]"></span>
+              )}
+            </button>
+
+            {/* Collaborative Call Toggle */}
+            <button
+              onClick={() => {
+                if (!isCallActive) {
+                  setIsCallActive(true);
+                  setIsCallPanelOpen(true);
+                } else {
+                  setIsCallPanelOpen(!isCallPanelOpen);
+                }
+              }}
+              className={`p-2.5 rounded-xl transition-all duration-300 relative hover-scale group cursor-pointer ${
+                isCallActive && isCallPanelOpen
+                  ? "text-emerald-400 bg-emerald-950/20 shadow-[0_0_10px_rgba(16,185,129,0.2)]" 
+                  : isCallActive
+                  ? "text-emerald-500 hover:text-emerald-400 hover:bg-slate-900/60 animate-pulse"
+                  : "hover:text-slate-200 hover:bg-slate-900/60 text-slate-400"
+              }`}
+              title="Collaborative Call"
+            >
+              <PhoneCall className="w-5.5 h-5.5" />
+              {isCallActive && isCallPanelOpen && (
+                <span className="absolute left-0 top-1/4 w-[3px] h-1/2 bg-emerald-500 rounded-r shadow-[0_0_8px_#10b981]"></span>
               )}
             </button>
 
@@ -806,6 +860,81 @@ export default function IDELayout() {
               +
             </button>
           </div>
+
+          {/* Floating Call UI Panel */}
+          {isCallActive && isCallPanelOpen && (
+            <div className="absolute top-6 right-6 w-72 bg-[#141419]/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl shadow-black/60 z-40 overflow-hidden flex flex-col animate-slide-up">
+              {/* Call Header */}
+              <div className="bg-[#1b1b22] px-4 py-2.5 border-b border-slate-800/80 flex items-center justify-between cursor-move select-none">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">Collab Session</span>
+                </div>
+                <button 
+                  onClick={() => setIsCallPanelOpen(false)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              {/* Call Video/Avatars Grid */}
+              <div className="p-4 grid grid-cols-2 gap-3 bg-[#0d0d10]/40">
+                {/* User 1 */}
+                <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-800/50 border-2 border-emerald-500/50 flex flex-col items-center justify-center group shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4" className="w-14 h-14 rounded-full" alt="Alex" />
+                  <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
+                    <span className="text-[9px] font-medium text-white truncate">Alex</span>
+                    <Mic className="w-2.5 h-2.5 text-emerald-400" />
+                  </div>
+                </div>
+                {/* User 2 */}
+                <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-800/50 border border-slate-700/50 flex flex-col items-center justify-center group">
+                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede" className="w-14 h-14 rounded-full opacity-80" alt="Sam" />
+                  <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
+                    <span className="text-[9px] font-medium text-white truncate">Sam</span>
+                    <MicOff className="w-2.5 h-2.5 text-red-400" />
+                  </div>
+                </div>
+                {/* AI Agent Avatar */}
+                <div className="relative aspect-square rounded-xl overflow-hidden bg-purple-950/20 border-2 border-purple-500/50 flex flex-col items-center justify-center group shadow-[0_0_15px_rgba(168,85,247,0.15)] col-span-2 h-28">
+                  <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center border-2 border-purple-400/50 animate-pulse-glow-purple">
+                     <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="absolute bottom-2 left-3 right-3 bg-black/60 backdrop-blur-md rounded-lg px-2 py-1 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-purple-300">Agent Alpha</span>
+                    <Volume2 className="w-3 h-3 text-emerald-400 animate-pulse" />
+                  </div>
+                  {/* Audio wave mock */}
+                  <div className="absolute top-3 right-3 flex gap-0.5">
+                    <span className="w-1 h-3 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "0ms"}}></span>
+                    <span className="w-1 h-4 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "100ms"}}></span>
+                    <span className="w-1 h-2 bg-emerald-400 rounded-full animate-bounce" style={{animationDelay: "200ms"}}></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Call Controls */}
+              <div className="bg-[#1b1b22] p-3 flex justify-center gap-3 border-t border-slate-800/80">
+                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Mute">
+                  <Mic className="w-4.5 h-4.5" />
+                </button>
+                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Deafen">
+                  <Volume2 className="w-4.5 h-4.5" />
+                </button>
+                <button className="p-2.5 rounded-full bg-slate-700/50 hover:bg-slate-600 text-white transition-colors cursor-pointer" title="Share Screen">
+                  <MonitorUp className="w-4.5 h-4.5" />
+                </button>
+                <button 
+                  onClick={() => setIsCallActive(false)}
+                  className="p-2.5 rounded-full bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-900/40 transition-colors cursor-pointer" 
+                  title="Disconnect"
+                >
+                  <PhoneOff className="w-4.5 h-4.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 4. Right Collapsible Sidebar (AI Chat Interface) */}
@@ -1117,6 +1246,11 @@ export default function IDELayout() {
           </span>
         </div>
       </footer>
+
+      <ShareModal 
+        isOpen={isShareModalOpen} 
+        onClose={() => setIsShareModalOpen(false)} 
+      />
     </div>
   );
 }
