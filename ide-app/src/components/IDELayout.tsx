@@ -407,7 +407,8 @@ export default function IDELayout() {
       localUserRef.current = {
         name: `User-${randomSeed}`,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=User-${randomSeed}&backgroundColor=b6e3f4`,
-        color: '#' + Math.floor(Math.random()*16777215).toString(16)
+        color: '#' + Math.floor(Math.random()*16777215).toString(16),
+        isSharingScreen: false
       };
     }
     provider.awareness.setLocalStateField('user', localUserRef.current);
@@ -422,7 +423,8 @@ export default function IDELayout() {
             name: state.user.name,
             avatar: state.user.avatar,
             color: state.user.color,
-            isMe: clientID === provider.awareness.clientID
+            isMe: clientID === provider.awareness.clientID,
+            isSharingScreen: !!state.user.isSharingScreen
           });
         }
       });
@@ -495,8 +497,92 @@ export default function IDELayout() {
   const localStreamRef = useRef<MediaStream | null>(null);
   const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
   const localAudioTrackRef = useRef<MediaStreamTrack | null>(null);
+  const localScreenStreamRef = useRef<MediaStream | null>(null);
+  const [remoteScreenStreams, setRemoteScreenStreams] = useState<Record<string, MediaStream>>({});
 
-  // WebRTC Audio Calls & Signalling via Yjs
+  // Sync isSharingScreen to Yjs awareness profile
+  useEffect(() => {
+    if (providerRef.current && localUserRef.current) {
+      const newProfile = { ...localUserRef.current, isSharingScreen };
+      localUserRef.current = newProfile;
+      providerRef.current.awareness.setLocalStateField('user', newProfile);
+    }
+  }, [isSharingScreen]);
+
+  // Handle local screen capture & streaming to peers
+  useEffect(() => {
+    const handleScreenSharing = async () => {
+      if (isSharingScreen && !localScreenStreamRef.current) {
+        try {
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          localScreenStreamRef.current = stream;
+          const track = stream.getVideoTracks()[0];
+
+          // Add video track to all peer connections
+          Object.entries(peerConnectionsRef.current).forEach(([pcId, pc]) => {
+            pc.addTrack(track, stream);
+            // Trigger renegotiation offer
+            pc.createOffer()
+              .then((offer) => {
+                return pc.setLocalDescription(offer).then(() => {
+                  if (ydocRef.current && providerRef.current) {
+                    const signalingMap = ydocRef.current.getMap('webrtc-signaling');
+                    const myClientID = providerRef.current.awareness.clientID;
+                    const offerKey = `offer_${myClientID}_${pcId}_${Date.now()}`;
+                    signalingMap.set(offerKey, JSON.stringify({
+                      offer,
+                      target: pcId,
+                      from: myClientID
+                    }));
+                  }
+                });
+              })
+              .catch(err => console.error("Error sending offer for screen share:", err));
+          });
+
+          track.onended = () => {
+            setIsSharingScreen(false);
+          };
+        } catch (err) {
+          console.warn("Screen share cancelled or failed:", err);
+          setIsSharingScreen(false);
+        }
+      } else if (!isSharingScreen && localScreenStreamRef.current) {
+        // Stop current tracks
+        localScreenStreamRef.current.getTracks().forEach(t => t.stop());
+        localScreenStreamRef.current = null;
+
+        // Remove video sender from peer connections
+        Object.entries(peerConnectionsRef.current).forEach(([pcId, pc]) => {
+          const senders = pc.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+          if (videoSender) {
+            pc.removeTrack(videoSender);
+            // Renegotiate
+            pc.createOffer()
+              .then((offer) => {
+                return pc.setLocalDescription(offer).then(() => {
+                  if (ydocRef.current && providerRef.current) {
+                    const signalingMap = ydocRef.current.getMap('webrtc-signaling');
+                    const myClientID = providerRef.current.awareness.clientID;
+                    const offerKey = `offer_${myClientID}_${pcId}_${Date.now()}`;
+                    signalingMap.set(offerKey, JSON.stringify({
+                      offer,
+                      target: pcId,
+                      from: myClientID
+                    }));
+                  }
+                });
+              })
+              .catch(err => console.error("Error renegotiating screen share close:", err));
+          }
+        });
+      }
+    };
+    handleScreenSharing();
+  }, [isSharingScreen]);
+
+  // WebRTC Audio & Video Calls & Signalling via Yjs
   useEffect(() => {
     if (!providerReady || !ydocRef.current || !providerRef.current) return;
 
@@ -554,9 +640,15 @@ export default function IDELayout() {
 
       peerConnectionsRef.current[pcId] = pc;
 
-      // Add local track if available
+      // Add local tracks if available
       if (localStreamRef.current && localAudioTrackRef.current) {
         pc.addTrack(localAudioTrackRef.current, localStreamRef.current);
+      }
+      if (localScreenStreamRef.current) {
+        const screenTrack = localScreenStreamRef.current.getVideoTracks()[0];
+        if (screenTrack) {
+          pc.addTrack(screenTrack, localScreenStreamRef.current);
+        }
       }
 
       // Send local ICE candidates to the target collaborator
@@ -571,21 +663,38 @@ export default function IDELayout() {
         }
       };
 
-      // Play remote audio stream when received
+      // Play remote audio/video stream when received
       pc.ontrack = (event) => {
         const remoteStream = event.streams[0];
         if (remoteStream) {
-          let audio = audioElementsRef.current[pcId];
-          if (!audio) {
-            audio = document.createElement('audio');
-            audio.autoplay = true;
-            audio.style.display = 'none';
-            document.body.appendChild(audio);
-            audioElementsRef.current[pcId] = audio;
+          if (event.track.kind === 'video') {
+            // Screen share stream
+            setRemoteScreenStreams(prev => ({
+              ...prev,
+              [collabId]: remoteStream
+            }));
+
+            event.track.onended = () => {
+              setRemoteScreenStreams(prev => {
+                const next = { ...prev };
+                delete next[collabId];
+                return next;
+              });
+            };
+          } else {
+            // Audio stream
+            let audio = audioElementsRef.current[pcId];
+            if (!audio) {
+              audio = document.createElement('audio');
+              audio.autoplay = true;
+              audio.style.display = 'none';
+              document.body.appendChild(audio);
+              audioElementsRef.current[pcId] = audio;
+            }
+            audio.srcObject = remoteStream;
+            audio.muted = isDeafened;
+            audio.play().catch(e => console.warn("Failed to auto-play remote audio:", e));
           }
-          audio.srcObject = remoteStream;
-          audio.muted = isDeafened; // Mute remote audio if local is deafened
-          audio.play().catch(e => console.warn("Failed to auto-play remote audio:", e));
         }
       };
 
@@ -603,6 +712,11 @@ export default function IDELayout() {
           audioElementsRef.current[pcId].remove();
           delete audioElementsRef.current[pcId];
         }
+        setRemoteScreenStreams(prev => {
+          const next = { ...prev };
+          delete next[pcId];
+          return next;
+        });
       }
     });
 
@@ -2291,6 +2405,57 @@ export default function IDELayout() {
                   suggestOnTriggerCharacters: true
                 }}
               />
+              {/* Screen Share Overlay Viewer */}
+              {Object.entries(remoteScreenStreams).map(([collabId, stream]) => {
+                const sharingCollab = activeCollaborators.find(c => c.id.toString() === collabId);
+                return (
+                  <div 
+                    key={collabId} 
+                    className={`absolute inset-0 z-30 flex flex-col backdrop-blur-md ${
+                      editorTheme === "vs-dark" ? "bg-[#0b0b0f]/80" : "bg-white/80"
+                    }`}
+                  >
+                    <div className={`px-4 py-2 border-b flex items-center justify-between ${
+                      editorTheme === "vs-dark" ? "bg-[#141419] border-slate-800/80 text-white" : "bg-slate-50 border-slate-200 text-slate-850"
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                        <span className="text-xs font-semibold">
+                          {sharingCollab ? sharingCollab.name : `User-${collabId}`} is sharing their screen
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setRemoteScreenStreams(prev => {
+                            const next = { ...prev };
+                            delete next[collabId];
+                            return next;
+                          });
+                        }}
+                        className={`p-1 rounded hover:bg-slate-700/50 cursor-pointer ${
+                          editorTheme === "vs-dark" ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex-1 bg-black flex items-center justify-center p-2 relative overflow-hidden">
+                      <video
+                        ref={(el) => {
+                          if (el) {
+                            el.srcObject = stream;
+                            el.play().catch(e => console.warn("Failed to play screen share track:", e));
+                          }
+                        }}
+                        controls
+                        autoPlay
+                        playsInline
+                        className="max-w-full max-h-full rounded-lg shadow-2xl object-contain border border-slate-800"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Code actions bar / Overlay options */}
