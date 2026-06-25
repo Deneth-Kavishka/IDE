@@ -440,9 +440,11 @@ export default function IDELayout() {
   const [replaceQuery, setReplaceQuery] = useState("");
   const [isReplaceExpanded, setIsReplaceExpanded] = useState(false);
   const editorRef = useRef<any>(null);
+  const [editorInstance, setEditorInstance] = useState<any>(null);
 
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
+    setEditorInstance(editor);
   };
 
   // Yjs Collaborative Editing Integration
@@ -524,7 +526,7 @@ export default function IDELayout() {
 
   // 2. Monaco binding per file
   useEffect(() => {
-    if (!providerReady || !editorRef.current || !ydocRef.current || !providerRef.current) return;
+    if (!providerReady || !editorInstance || !ydocRef.current || !providerRef.current) return;
 
     const doc = ydocRef.current;
     const provider = providerRef.current;
@@ -534,7 +536,7 @@ export default function IDELayout() {
     const ytext = doc.getText(safePath);
 
     // Populate initial text if Yjs document is empty
-    const currentModel = editorRef.current.getModel();
+    const currentModel = editorInstance.getModel();
     if (ytext.toString() === "" && currentModel) {
       const val = currentModel.getValue();
       if (val) {
@@ -546,7 +548,7 @@ export default function IDELayout() {
     const binding = new MonacoBinding(
       ytext,
       currentModel,
-      new Set([editorRef.current]),
+      new Set([editorInstance]),
       provider.awareness
     );
     bindingRef.current = binding;
@@ -557,7 +559,7 @@ export default function IDELayout() {
         bindingRef.current = null;
       }
     };
-  }, [activeFilePath, editorRef.current, providerReady]);
+  }, [activeFilePath, editorInstance, providerReady]);
 
   // Call settings state
   const [isMuted, setIsMuted] = useState(false);
