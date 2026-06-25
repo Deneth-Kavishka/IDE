@@ -289,7 +289,11 @@ export default function IDELayout() {
   useEffect(() => {
     const fetchWorkspaceFiles = async () => {
       try {
-        const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`);
+        const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`, {
+          headers: {
+            "ngrok-skip-browser-warning": "true"
+          }
+        });
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data) && data.length > 0) {
@@ -1204,7 +1208,10 @@ export default function IDELayout() {
     try {
       const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true"
+        },
         body: JSON.stringify(payload)
       });
       if (response.ok) {
@@ -1251,7 +1258,10 @@ export default function IDELayout() {
 
     try {
       const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files/${fileId}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: {
+          "ngrok-skip-browser-warning": "true"
+        }
       });
       if (response.ok) {
         setFiles(prev => {
