@@ -285,42 +285,6 @@ export default function IDELayout() {
   const [workspaceId] = useState<string>(() => new URLSearchParams(window.location.search).get('room') || "my-room");
   const BACKEND_API_URL = "https://quench-mortified-amaze.ngrok-free.dev";
 
-  // Fetch workspace files from backend on component mount
-  useEffect(() => {
-    const fetchWorkspaceFiles = async () => {
-      try {
-        const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`, {
-          headers: {
-            "ngrok-skip-browser-warning": "true"
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          if (Array.isArray(data) && data.length > 0) {
-            const filesMap: Record<string, MockFile> = {};
-            data.forEach((file: any) => {
-              const filePath = file.path || file.name || `src/${file.id || file.name}`;
-              filesMap[filePath] = {
-                id: file.id || file.file_id || filePath,
-                name: file.name,
-                path: filePath,
-                language: file.language || "typescript",
-                content: file.content || ""
-              };
-            });
-            setFiles(filesMap);
-            const paths = Object.keys(filesMap);
-            setOpenTabs(paths);
-            setActiveFilePath(paths[0]);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch files from backend REST API:", err);
-      }
-    };
-    fetchWorkspaceFiles();
-  }, []);
-
   // File explorer states
   const [files, setFiles] = useState<Record<string, MockFile>>(initialFiles);
   const [activeFilePath, setActiveFilePath] = useState<string>("src/components/IDELayout.tsx");
@@ -334,6 +298,50 @@ export default function IDELayout() {
     components: true,
     root: true
   });
+
+  const fetchWorkspaceFiles = async () => {
+    try {
+      const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`, {
+        headers: {
+          "ngrok-skip-browser-warning": "true"
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const filesMap: Record<string, MockFile> = {};
+          data.forEach((file: any) => {
+            const filePath = file.path || file.name || `src/${file.id || file.name}`;
+            filesMap[filePath] = {
+              id: file.id || file.file_id || filePath,
+              name: file.name,
+              path: filePath,
+              language: file.language || "typescript",
+              content: file.content || ""
+            };
+          });
+          setFiles(filesMap);
+          setOpenTabs(prev => {
+            // Keep existing tabs if they are still valid in the new files map
+            const validPrev = prev.filter(p => filesMap[p]);
+            if (validPrev.length > 0) return validPrev;
+            return Object.keys(filesMap);
+          });
+          setActiveFilePath(prev => {
+            if (filesMap[prev]) return prev;
+            return Object.keys(filesMap)[0];
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch files from backend REST API:", err);
+    }
+  };
+
+  // Fetch workspace files from backend on component mount
+  useEffect(() => {
+    fetchWorkspaceFiles();
+  }, []);
 
   // Editor states
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark");
@@ -490,6 +498,13 @@ export default function IDELayout() {
     provider.awareness.on('change', handleAwarenessUpdate);
     handleAwarenessUpdate();
 
+    // Observe changes to shared files-metadata to trigger file tree reloading in real-time
+    const filesMetadataMap = doc.getMap('files-metadata');
+    const handleFilesMetadataObserve = () => {
+      fetchWorkspaceFiles();
+    };
+    filesMetadataMap.observe(handleFilesMetadataObserve);
+
     setProviderReady(true);
 
     provider.on('status', (event: any) => {
@@ -499,6 +514,7 @@ export default function IDELayout() {
     return () => {
       setProviderReady(false);
       provider.awareness.off('change', handleAwarenessUpdate);
+      filesMetadataMap.unobserve(handleFilesMetadataObserve);
       provider.destroy();
       doc.destroy();
       ydocRef.current = null;
@@ -1228,6 +1244,11 @@ export default function IDELayout() {
           }
         }));
         handleOpenFile(createdPath);
+
+        // Notify other clients via Yjs
+        if (ydocRef.current) {
+          ydocRef.current.getMap('files-metadata').set('lastUpdated', Date.now().toString());
+        }
       }
     } catch (err) {
       console.error("Error creating file on backend:", err);
@@ -1270,6 +1291,11 @@ export default function IDELayout() {
           return newFiles;
         });
         handleCloseTab(null as any, path);
+
+        // Notify other clients via Yjs
+        if (ydocRef.current) {
+          ydocRef.current.getMap('files-metadata').set('lastUpdated', Date.now().toString());
+        }
       }
     } catch (err) {
       console.error("Error deleting file on backend:", err);
@@ -1553,27 +1579,27 @@ export default function IDELayout() {
   type MenuItem = { label?: string; action?: () => void; divider?: boolean; shortcut?: string };
   const IDE_MENUS: Record<string, MenuItem[]> = {
     File: [
-      { label: "New File", shortcut: "Ctrl+N", action: () => alert("New File created (mock)") },
-      { label: "New Window", shortcut: "Ctrl+Shift+N", action: () => alert("New Window opened (mock)") },
+      { label: "New File", shortcut: "Ctrl+N", action: handleCreateFile },
+      { label: "New Window", shortcut: "Ctrl+Shift+N", action: () => window.open(window.location.href, '_blank') },
       { divider: true },
       { label: "Save", shortcut: "Ctrl+S", action: () => alert("File saved successfully!") },
       { label: "Save As...", shortcut: "Ctrl+Shift+S", action: () => alert("Save As dialog opened (mock)") },
       { divider: true },
       { label: "Share Workspace", action: () => setIsShareModalOpen(true) },
       { divider: true },
-      { label: "Exit", shortcut: "Ctrl+Q", action: () => alert("Exiting IDE...") }
+      { label: "Exit", shortcut: "Ctrl+Q", action: () => window.close() }
     ],
     Edit: [
-      { label: "Undo", shortcut: "Ctrl+Z", action: () => alert("Undo (mock)") },
-      { label: "Redo", shortcut: "Ctrl+Y", action: () => alert("Redo (mock)") },
+      { label: "Undo", shortcut: "Ctrl+Z", action: () => { editorRef.current?.focus(); editorRef.current?.trigger('source', 'undo', null); } },
+      { label: "Redo", shortcut: "Ctrl+Y", action: () => { editorRef.current?.focus(); editorRef.current?.trigger('source', 'redo', null); } },
       { divider: true },
-      { label: "Cut", shortcut: "Ctrl+X", action: () => alert("Cut (mock)") },
-      { label: "Copy", shortcut: "Ctrl+C", action: () => alert("Copy (mock)") },
-      { label: "Paste", shortcut: "Ctrl+V", action: () => alert("Paste (mock)") }
+      { label: "Cut", shortcut: "Ctrl+X", action: () => { editorRef.current?.focus(); document.execCommand('cut'); } },
+      { label: "Copy", shortcut: "Ctrl+C", action: () => { editorRef.current?.focus(); document.execCommand('copy'); } },
+      { label: "Paste", shortcut: "Ctrl+V", action: () => { editorRef.current?.focus(); document.execCommand('paste'); } }
     ],
     Selection: [
-      { label: "Select All", shortcut: "Ctrl+A", action: () => alert("Select All (mock)") },
-      { label: "Expand Selection", shortcut: "Alt+Shift+Right", action: () => alert("Expand Selection (mock)") }
+      { label: "Select All", shortcut: "Ctrl+A", action: () => { editorRef.current?.focus(); editorRef.current?.trigger('source', 'editor.action.selectAll', null); } },
+      { label: "Expand Selection", shortcut: "Alt+Shift+Right", action: () => { editorRef.current?.focus(); editorRef.current?.trigger('source', 'editor.action.smartSelect.expand', null); } }
     ],
     View: [
       { label: "Explorer", shortcut: "Ctrl+Shift+E", action: () => { setLeftSidebarOpen(true); setActiveLeftTab("explorer"); } },
@@ -1584,19 +1610,19 @@ export default function IDELayout() {
       { label: "AI Copilot", action: () => setRightSidebarOpen(prev => !prev) }
     ],
     Go: [
-      { label: "Go to File...", shortcut: "Ctrl+P", action: () => alert("Go to File (mock)") },
-      { label: "Go to Line...", shortcut: "Ctrl+G", action: () => alert("Go to Line (mock)") }
+      { label: "Go to File...", shortcut: "Ctrl+P", action: () => { setLeftSidebarOpen(true); setActiveLeftTab("explorer"); } },
+      { label: "Go to Line...", shortcut: "Ctrl+G", action: () => { editorRef.current?.focus(); editorRef.current?.trigger('source', 'editor.action.gotoLine', null); } }
     ],
     Run: [
-      { label: "Start Debugging", shortcut: "F5", action: () => alert("Starting Debugger... (mock)") },
+      { label: "Start Debugging", shortcut: "F5", action: () => { setBottomPanelOpen(true); setActiveBottomTab("problems"); } },
       { label: "Run Without Debugging", shortcut: "Ctrl+F5", action: handleRunCode }
     ],
     Terminal: [
-      { label: "New Terminal", shortcut: "Ctrl+Shift+`", action: () => setBottomPanelOpen(true) }
+      { label: "New Terminal", shortcut: "Ctrl+Shift+`", action: () => { setBottomPanelOpen(true); setActiveBottomTab("terminal"); } }
     ],
     Help: [
       { label: "Welcome", action: () => alert("Welcome to Cod Code IDE!") },
-      { label: "Keyboard Shortcuts", shortcut: "Ctrl+K Ctrl+S", action: () => alert("Keyboard Shortcuts (mock)") },
+      { label: "Keyboard Shortcuts", shortcut: "Ctrl+K Ctrl+S", action: () => { editorRef.current?.focus(); editorRef.current?.trigger('source', 'editor.action.showCommands', null); } },
       { divider: true },
       { label: "About", action: () => alert("Cod Code IDE v0.1.0") }
     ]
