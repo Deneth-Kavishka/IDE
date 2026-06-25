@@ -147,13 +147,65 @@ export default function IDELayout() {
   const [bottomPanelHeight, setBottomPanelHeight] = useState(220);
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false);
   const [activeBottomTab, setActiveBottomTab] = useState<"terminal" | "output" | "problems">("terminal");
+  // OS Detection for terminal custom look and feel
+  const [clientOS] = useState(() => {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("mac")) return "macos";
+    if (ua.includes("linux")) return "linux";
+    return "windows";
+  });
+
+  const getTerminalPrompt = (os: string) => {
+    if (os === "macos") return "user@mac-ide workspace % ";
+    if (os === "linux") return "user@linux-ide:~/workspace$ ";
+    return "c:\\Users\\DYD\\Desktop\\IDE\\ide-app> ";
+  };
+
+  const getTerminalHeader = (os: string) => {
+    if (os === "macos") {
+      return [
+        "Last login: Thu Jun 25 10:19:08 on ttys001",
+        "Welcome to macOS! Apple Swift version 5.9",
+        ""
+      ];
+    }
+    if (os === "linux") {
+      return [
+        "Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-37-generic x86_64)",
+        "",
+        " * Documentation:  https://help.ubuntu.com",
+        " * Management:     https://landscape.canonical.com",
+        " * Support:        https://ubuntu.com/pro",
+        ""
+      ];
+    }
+    return [
+      "Microsoft Windows [Version 10.0.22631]",
+      "(c) Microsoft Corporation. All rights reserved.",
+      ""
+    ];
+  };
+
   const [terminalInput, setTerminalInput] = useState("");
-  const [terminalHistory, setTerminalHistory] = useState<string[]>([
-    "Microsoft Windows [Version 10.0.22631]",
-    "(c) Microsoft Corporation. All rights reserved.",
-    "",
-    "c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "
-  ]);
+  const [terminalHistory, setTerminalHistory] = useState<string[]>(() => {
+    const prompt = getTerminalPrompt(clientOS);
+    const header = getTerminalHeader(clientOS);
+    return [...header, prompt];
+  });
+
+  const tauriInvokeRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).__TAURI__) {
+      import('@tauri-apps/api/core')
+        .then((m) => {
+          tauriInvokeRef.current = m.invoke;
+        })
+        .catch((err) => {
+          console.warn("Failed to load Tauri core API:", err);
+        });
+    }
+  }, []);
   const [outputLogs, setOutputLogs] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -2447,7 +2499,6 @@ export default function IDELayout() {
                             el.play().catch(e => console.warn("Failed to play screen share track:", e));
                           }
                         }}
-                        controls
                         autoPlay
                         playsInline
                         className="max-w-full max-h-full rounded-lg shadow-2xl object-contain border border-slate-800"
@@ -2561,12 +2612,9 @@ export default function IDELayout() {
                   type="button"
                   onClick={() => {
                     if (activeBottomTab === "terminal") {
-                      setTerminalHistory([
-                        "Microsoft Windows [Version 10.0.22631]",
-                        "(c) Microsoft Corporation. All rights reserved.",
-                        "",
-                        "c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "
-                      ]);
+                      const prompt = getTerminalPrompt(clientOS);
+                      const header = getTerminalHeader(clientOS);
+                      setTerminalHistory([...header, prompt]);
                     } else if (activeBottomTab === "output") {
                       setOutputLogs([]);
                     }
@@ -2610,44 +2658,70 @@ export default function IDELayout() {
                       e.preventDefault();
                       if (!terminalInput.trim()) return;
                       const cmd = terminalInput.trim();
-                      let reply = "";
+                      const prompt = getTerminalPrompt(clientOS);
 
                       if (cmd === "cls" || cmd === "clear") {
-                        setTerminalHistory(["c:\\Users\\DYD\\Desktop\\IDE\\ide-app> "]);
+                        setTerminalHistory([prompt]);
                         setTerminalInput("");
                         return;
-                      } else if (cmd === "npm run dev" || cmd === "npm start" || cmd === "run") {
-                        handleRunCode();
-                        setTerminalInput("");
-                        return;
-                      } else if (cmd === "git status") {
-                        reply = "On branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   src/components/IDELayout.tsx\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")";
-                      } else if (cmd.startsWith("help")) {
-                        reply = "Available commands: cls, clear, npm run dev, run, git status, help, node -v, echo <text>";
-                      } else if (cmd === "node -v") {
-                        reply = "v20.11.0";
-                      } else if (cmd.startsWith("echo ")) {
-                        reply = cmd.substring(5);
-                      } else {
-                        reply = `'${cmd.split(" ")[0]}' is not recognized as an internal or external command,\noperable program or batch file. Type 'help' for commands.`;
                       }
 
-                      setTerminalHistory(prev => {
-                        const hist = [...prev];
-                        if (hist.length > 0) {
-                          hist[hist.length - 1] = hist[hist.length - 1] + cmd;
+                      // Execute Command (Native or Mock)
+                      const executeTerminalCmd = async () => {
+                        let reply = "";
+                        
+                        if (tauriInvokeRef.current) {
+                          // Running inside Tauri desktop application - execute actual native shell command!
+                          try {
+                            const res = await tauriInvokeRef.current("execute_command", { command: cmd });
+                            reply = res || "";
+                          } catch (err: any) {
+                            reply = err || "Error executing command";
+                          }
+                        } else {
+                          // Running inside regular web browser - fall back to mock environment with OS check
+                          if (cmd === "npm run dev" || cmd === "npm start" || cmd === "run") {
+                            handleRunCode();
+                            setTerminalInput("");
+                            return;
+                          } else if (cmd === "git status") {
+                            reply = "On branch main\nYour branch is up to date with 'origin/main'.\n\nChanges not staged for commit:\n  (use \"git add <file>...\" to update what will be committed)\n  (use \"git restore <file>...\" to discard changes in working directory)\n\tmodified:   src/components/IDELayout.tsx\n\nno changes added to commit (use \"git add\" and/or \"git commit -a\")";
+                          } else if (cmd.startsWith("help")) {
+                            reply = "Available commands (Mock): cls, clear, npm run dev, run, git status, help, node -v, echo <text>\n\nNote: To run actual machine shell commands, launch this IDE as a desktop application using Tauri.";
+                          } else if (cmd === "node -v") {
+                            reply = "v20.11.0";
+                          } else if (cmd.startsWith("echo ")) {
+                            reply = cmd.substring(5);
+                          } else {
+                            if (clientOS === "windows") {
+                              reply = `'${cmd.split(" ")[0]}' is not recognized as an internal or external command,\noperable program or batch file. Type 'help' for commands.`;
+                            } else {
+                              reply = `bash: ${cmd.split(" ")[0]}: command not found. Type 'help' for commands.`;
+                            }
+                          }
                         }
-                        if (reply) {
-                          hist.push(reply);
-                        }
-                        hist.push("c:\\Users\\DYD\\Desktop\\IDE\\ide-app> ");
-                        return hist;
-                      });
-                      setTerminalInput("");
+
+                        setTerminalHistory(prev => {
+                          const hist = [...prev];
+                          if (hist.length > 0) {
+                            hist[hist.length - 1] = hist[hist.length - 1] + cmd;
+                          }
+                          if (reply) {
+                            // If reply has newlines, split it and push
+                            const lines = reply.split("\n");
+                            hist.push(...lines);
+                          }
+                          hist.push(prompt);
+                          return hist;
+                        });
+                        setTerminalInput("");
+                      };
+
+                      executeTerminalCmd();
                     }}
                     className="flex items-center"
                   >
-                    <span className="shrink-0">c:\Users\DYD\Desktop\IDE\ide-app&gt;&nbsp;</span>
+                    <span className="shrink-0">{getTerminalPrompt(clientOS)}&nbsp;</span>
                     <input
                       type="text"
                       value={terminalInput}
