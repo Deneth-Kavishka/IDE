@@ -20,8 +20,8 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
   const [isEditingMyName, setIsEditingMyName] = useState(false);
   const [myNameInput, setMyNameInput] = useState("");
   const [collaborators, setCollaborators] = useState([
-    { name: "Alex (AI Expert)", email: "alex@example.com", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4", role: "Editor" },
-    { name: "Sam Designer", email: "sam@example.com", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede", role: "Viewer" }
+    { name: "Alex (AI Expert)", email: "alex@example.com", avatar: "https://api.dicebear.com/7.x/initials/svg?seed=Alex", role: "Editor" },
+    { name: "Sam Designer", email: "sam@example.com", avatar: "https://api.dicebear.com/7.x/initials/svg?seed=Sam", role: "Viewer" }
   ]);
 
   const handleCopyLink = () => {
@@ -38,7 +38,7 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
     const newCollab = {
       name: isEmail ? name.charAt(0).toUpperCase() + name.slice(1) : inviteInput,
       email: isEmail ? inviteInput : `${inviteInput.toLowerCase().replace(/\s+/g, '')}@example.com`,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(inviteInput)}&backgroundColor=b6e3f4`,
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(inviteInput)}`,
       role: inviteRole
     };
     setCollaborators([...collaborators, newCollab]);

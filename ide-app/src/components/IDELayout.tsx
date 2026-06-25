@@ -61,75 +61,7 @@ interface MockFile {
   content: string;
 }
 
-const initialFiles: Record<string, MockFile> = {
-  "src/components/IDELayout.tsx": {
-    name: "IDELayout.tsx",
-    path: "src/components/IDELayout.tsx",
-    language: "typescript",
-    content: `import React, { useState } from 'react';
-import Editor from '@monaco-editor/react';
-import { Sparkles, MessageSquareCode, Folder } from 'lucide-react';
-
-export default function IDELayout() {
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
-
-  return (
-    <div className="flex flex-1 flex-col h-full overflow-hidden bg-[#1e1e1e]">
-      {/* Premium IDE Workspace */}
-    </div>
-  );
-}`
-  },
-  "src/App.tsx": {
-    name: "App.tsx",
-    path: "src/App.tsx",
-    language: "typescript",
-    content: `import React from 'react';
-import IDELayout from './components/IDELayout';
-
-function App() {
-  return (
-    <div className="h-screen w-screen bg-[#181818] overflow-hidden flex flex-col text-slate-100">
-      <IDELayout />
-    </div>
-  );
-}
-
-export default App;`
-  },
-  "src/index.css": {
-    name: "index.css",
-    path: "src/index.css",
-    language: "css",
-    content: `@import "tailwindcss";
-
-body {
-  margin: 0;
-  background-color: #1e1e1e;
-  color: #f3f4f6;
-  font-family: 'Inter', sans-serif;
-  overflow: hidden;
-}`
-  },
-  "package.json": {
-    name: "package.json",
-    path: "package.json",
-    language: "json",
-    content: `{
-  "name": "ide-app",
-  "version": "0.1.0",
-  "private": true,
-  "dependencies": {
-    "@monaco-editor/react": "^4.7.0",
-    "lucide-react": "^0.470.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "tailwindcss": "^4.0.0"
-  }
-}`
-  }
-};
+const initialFiles: Record<string, MockFile> = {};
 
 interface ChatMessage {
   id: string;
@@ -290,12 +222,8 @@ export default function IDELayout() {
 
   // File explorer states
   const [files, setFiles] = useState<Record<string, MockFile>>(initialFiles);
-  const [activeFilePath, setActiveFilePath] = useState<string>("src/components/IDELayout.tsx");
-  const [openTabs, setOpenTabs] = useState<string[]>([
-    "src/components/IDELayout.tsx",
-    "src/App.tsx",
-    "package.json"
-  ]);
+  const [activeFilePath, setActiveFilePath] = useState<string>("");
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [explorerExpanded, setExplorerExpanded] = useState({
     src: true,
     components: true,
@@ -382,7 +310,7 @@ export default function IDELayout() {
       const newProfile = { 
         ...localUserRef.current, 
         name: newName.trim(),
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(newName.trim())}&backgroundColor=b6e3f4`
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(newName.trim())}`
       };
       localUserRef.current = newProfile;
       if (providerRef.current) {
@@ -492,7 +420,7 @@ export default function IDELayout() {
       const randomSeed = Math.floor(Math.random() * 1000);
       localUserRef.current = {
         name: `User-${randomSeed}`,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=User-${randomSeed}&backgroundColor=b6e3f4`,
+        avatar: `https://api.dicebear.com/7.x/initials/svg?seed=User-${randomSeed}`,
         color: '#' + Math.floor(Math.random()*16777215).toString(16),
         isSharingScreen: false
       };
@@ -1910,8 +1838,8 @@ export default function IDELayout() {
         {/* Multiplayer Avatars & Share */}
         <div className="flex items-center ml-auto mr-4 gap-3">
           <div className="flex -space-x-2">
-            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-indigo-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4" alt="Alex" title="Alex is editing IDELayout.tsx" />
-            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-emerald-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede" alt="Sam" title="Sam is editing App.css" />
+            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-indigo-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/initials/svg?seed=Alex" alt="Alex" title="Alex is editing IDELayout.tsx" />
+            <img className="w-7 h-7 rounded-full border border-[#1a1a1f] bg-emerald-500 hover:z-10 hover:scale-110 transition-transform cursor-pointer" src="https://api.dicebear.com/7.x/initials/svg?seed=Sam" alt="Sam" title="Sam is editing App.css" />
             <div className="w-7 h-7 rounded-full border-2 border-purple-500/80 bg-purple-950 flex items-center justify-center text-[10px] font-bold text-purple-300 z-10 shadow-[0_0_8px_rgba(168,85,247,0.4)]" title="AI Agent is active">AI</div>
           </div>
           <button
@@ -2154,7 +2082,7 @@ export default function IDELayout() {
                 ) : (
                   <>
                     <div className={`px-4 py-3 border-b text-sm font-semibold flex items-center gap-2 ${editorTheme === "vs-dark" ? "border-slate-800/80 text-white" : "border-slate-100 text-slate-800"}`}>
-                      <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Owner" className="w-6 h-6 rounded-full" alt="avatar" />
+                      <img src="https://api.dicebear.com/7.x/initials/svg?seed=Owner" className="w-6 h-6 rounded-full" alt="avatar" />
                       <span>owner@antigravity.studio</span>
                     </div>
                     <button
@@ -2753,41 +2681,49 @@ export default function IDELayout() {
 
             {/* Monaco Editor Container */}
             <div className={`flex-1 w-full relative ${editorTheme === "vs-dark" ? "bg-[#1e1e1e]" : "bg-white"}`}>
-              <Editor
-                height="100%"
-                path={activeFile.path}
-                language={activeFile.language}
-                value={activeFile.content}
-                theme={editorTheme}
-                onChange={handleEditorChange}
-                onMount={handleEditorDidMount}
-                options={{
-                  fontSize: fontSize,
-                  minimap: { enabled: minimapEnabled },
-                  wordWrap: wordWrap,
-                  tabSize: tabSize,
-                  cursorBlinking: cursorBlinking,
-                  scrollbar: {
-                    verticalScrollbarSize: 6,
-                    horizontalScrollbarSize: 6,
-                    vertical: "visible",
-                    horizontal: "visible"
-                  },
-                  lineNumbers: lineNumbers,
-                  renderWhitespace: renderWhitespace,
-                  bracketPairColorization: { enabled: bracketPairColorization },
-                  roundedSelection: true,
-                  scrollBeyondLastLine: false,
-                  readOnly: false,
-                  automaticLayout: true,
-                  cursorSmoothCaretAnimation: "on",
-                  fontFamily: `${fontFamily}, Menlo, Monaco, Consolas, monospace`,
-                  fontLigatures: true,
-                  renderLineHighlight: "all",
-                  quickSuggestions: { other: true, comments: true, strings: true },
-                  suggestOnTriggerCharacters: true
-                }}
-              />
+              {activeFile?.path ? (
+                <Editor
+                  height="100%"
+                  path={activeFile.path}
+                  language={activeFile.language}
+                  value={activeFile.content}
+                  theme={editorTheme}
+                  onChange={handleEditorChange}
+                  onMount={handleEditorDidMount}
+                  options={{
+                    fontSize: fontSize,
+                    minimap: { enabled: minimapEnabled },
+                    wordWrap: wordWrap,
+                    tabSize: tabSize,
+                    cursorBlinking: cursorBlinking,
+                    scrollbar: {
+                      verticalScrollbarSize: 6,
+                      horizontalScrollbarSize: 6,
+                      vertical: "visible",
+                      horizontal: "visible"
+                    },
+                    lineNumbers: lineNumbers,
+                    renderWhitespace: renderWhitespace,
+                    bracketPairColorization: { enabled: bracketPairColorization },
+                    roundedSelection: true,
+                    scrollBeyondLastLine: false,
+                    readOnly: false,
+                    automaticLayout: true,
+                    cursorSmoothCaretAnimation: "on",
+                    fontFamily: `${fontFamily}, Menlo, Monaco, Consolas, monospace`,
+                    fontLigatures: true,
+                    renderLineHighlight: "all",
+                    quickSuggestions: { other: true, comments: true, strings: true },
+                    suggestOnTriggerCharacters: true
+                  }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-2">
+                  <Terminal className="w-12 h-12 text-slate-700 animate-pulse animate-duration-1000" />
+                  <p className="text-sm font-medium">No file active</p>
+                  <p className="text-xs text-slate-600">Select a file from the explorer or create a new one to begin editing.</p>
+                </div>
+              )}
               {/* Screen share tiles are now shown in the call panel, not here */}
             </div>
 
