@@ -551,6 +551,85 @@ export default function IDELayout() {
   const localAudioTrackRef = useRef<MediaStreamTrack | null>(null);
   const localScreenStreamRef = useRef<MediaStream | null>(null);
   const [remoteScreenStreams, setRemoteScreenStreams] = useState<Record<string, MediaStream>>({});
+  const [speakingUsers, setSpeakingUsers] = useState<Record<string, boolean>>({});
+  const audioContextsRef = useRef<Record<string, { audioCtx: AudioContext; processor: ScriptProcessorNode; source: MediaStreamAudioSourceNode }>>({});
+
+  const monitorStreamVolume = (clientId: string, stream: MediaStream) => {
+    try {
+      stopMonitoringVolume(clientId);
+
+      const audioTracks = stream.getAudioTracks();
+      if (audioTracks.length === 0) return;
+
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+
+      const audioCtx = new AudioContextClass();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(2048, 1, 1);
+
+      source.connect(processor);
+      processor.connect(audioCtx.destination);
+
+      let speakingCounter = 0;
+      const threshold = 0.008;
+      const consecutiveFrames = 3;
+
+      processor.onaudioprocess = (event) => {
+        const inputBuffer = event.inputBuffer.getChannelData(0);
+        let sum = 0;
+        for (let i = 0; i < inputBuffer.length; i++) {
+          sum += inputBuffer[i] * inputBuffer[i];
+        }
+        const rms = Math.sqrt(sum / inputBuffer.length);
+        const isCurrentlySpeaking = rms > threshold;
+
+        if (isCurrentlySpeaking) {
+          speakingCounter = Math.min(consecutiveFrames, speakingCounter + 1);
+        } else {
+          speakingCounter = Math.max(-consecutiveFrames, speakingCounter - 1);
+        }
+
+        if (speakingCounter >= consecutiveFrames) {
+          setSpeakingUsers(prev => {
+            if (prev[clientId]) return prev;
+            return { ...prev, [clientId]: true };
+          });
+        } else if (speakingCounter <= -consecutiveFrames) {
+          setSpeakingUsers(prev => {
+            if (!prev[clientId]) return prev;
+            return { ...prev, [clientId]: false };
+          });
+        }
+      };
+
+      audioContextsRef.current[clientId] = { audioCtx, processor, source };
+    } catch (err) {
+      console.warn(`Failed to monitor stream volume for client ${clientId}:`, err);
+    }
+  };
+
+  const stopMonitoringVolume = (clientId: string) => {
+    const monitor = audioContextsRef.current[clientId];
+    if (monitor) {
+      try {
+        monitor.processor.disconnect();
+        monitor.source.disconnect();
+        if (monitor.audioCtx.state !== "closed") {
+          monitor.audioCtx.close();
+        }
+      } catch (err) {
+        console.warn(`Error stopping volume monitor for client ${clientId}:`, err);
+      }
+      delete audioContextsRef.current[clientId];
+    }
+    setSpeakingUsers(prev => {
+      if (!prev[clientId]) return prev;
+      const next = { ...prev };
+      delete next[clientId];
+      return next;
+    });
+  };
 
   // Sync isSharingScreen to Yjs awareness profile
   useEffect(() => {
@@ -645,6 +724,40 @@ export default function IDELayout() {
     // Get or create signaling map
     const signalingMap = doc.getMap('webrtc-signaling');
 
+    if (!isCallActive) {
+      // CLEAN UP EVERYTHING INSTANTLY!
+      Object.keys(peerConnectionsRef.current).forEach((pcId) => {
+        try {
+          peerConnectionsRef.current[pcId].close();
+        } catch (e) {}
+        delete peerConnectionsRef.current[pcId];
+      });
+      peerConnectionsRef.current = {};
+
+      Object.keys(audioElementsRef.current).forEach((pcId) => {
+        try {
+          audioElementsRef.current[pcId].remove();
+        } catch (e) {}
+        delete audioElementsRef.current[pcId];
+      });
+      audioElementsRef.current = {};
+
+      Object.keys(audioContextsRef.current).forEach((clientId) => {
+        stopMonitoringVolume(clientId);
+      });
+      audioContextsRef.current = {};
+      setSpeakingUsers({});
+
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+      }
+      localAudioTrackRef.current = null;
+
+      setRemoteScreenStreams({});
+      return;
+    }
+
     // Tries to request audio stream if call is active
     const setupLocalStream = async () => {
       if (isCallActive && !localStreamRef.current) {
@@ -656,6 +769,9 @@ export default function IDELayout() {
           // Toggle track state based on mute/deafen
           track.enabled = !isMuted && !isDeafened;
           
+          // Monitor local stream volume
+          monitorStreamVolume(myClientID.toString(), stream);
+
           // Attach track to existing RTCPeerConnections
           Object.values(peerConnectionsRef.current).forEach((pc) => {
             const senders = pc.getSenders();
@@ -746,6 +862,9 @@ export default function IDELayout() {
             audio.srcObject = remoteStream;
             audio.muted = isDeafened;
             audio.play().catch(e => console.warn("Failed to auto-play remote audio:", e));
+
+            // Monitor remote stream volume
+            monitorStreamVolume(collabId, remoteStream);
           }
         }
       };
@@ -764,6 +883,7 @@ export default function IDELayout() {
           audioElementsRef.current[pcId].remove();
           delete audioElementsRef.current[pcId];
         }
+        stopMonitoringVolume(pcId);
         setRemoteScreenStreams(prev => {
           const next = { ...prev };
           delete next[pcId];
@@ -2820,9 +2940,11 @@ export default function IDELayout() {
                     className={`relative aspect-square rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center group transition-all duration-300 ${
                       editorTheme === "vs-dark" ? "bg-slate-800/50" : "bg-slate-100 border-slate-200"
                     } ${
-                      collab.isMe 
-                        ? (isMuted ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]") 
-                        : "border-slate-700/50"
+                      speakingUsers[collab.id.toString()]
+                        ? "ring-2 ring-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.55)] scale-[1.03] border-emerald-500"
+                        : (collab.isMe 
+                            ? (isMuted ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]") 
+                            : "border-slate-700/50")
                     }`}
                   >
                     <img src={collab.avatar} className="w-14 h-14 rounded-full" alt={collab.name} />
