@@ -583,6 +583,26 @@ export default function IDELayout() {
   const localScreenStreamRef = useRef<MediaStream | null>(null);
   const [remoteScreenStreams, setRemoteScreenStreams] = useState<Record<string, MediaStream>>({});
   const [speakingUsers, setSpeakingUsers] = useState<Record<string, boolean>>({});
+
+  // Renegotiate connection helper
+  const renegotiate = (pcId: string, pc: RTCPeerConnection) => {
+    pc.createOffer()
+      .then((offer) => {
+        return pc.setLocalDescription(offer).then(() => {
+          if (ydocRef.current && providerRef.current) {
+            const signalingMap = ydocRef.current.getMap('webrtc-signaling');
+            const myClientID = providerRef.current.awareness.clientID;
+            const offerKey = `offer_${myClientID}_${pcId}_${Date.now()}`;
+            signalingMap.set(offerKey, JSON.stringify({
+              offer,
+              target: pcId,
+              from: myClientID
+            }));
+          }
+        });
+      })
+      .catch(err => console.error(`Error renegotiating for peer ${pcId}:`, err));
+  };
   const audioContextsRef = useRef<Record<string, { audioCtx: AudioContext; processor: ScriptProcessorNode; source: MediaStreamAudioSourceNode }>>({});
 
   const monitorStreamVolume = (clientId: string, stream: MediaStream) => {
@@ -686,22 +706,7 @@ export default function IDELayout() {
               pc.addTrack(track, stream);
             });
             // Trigger renegotiation offer
-            pc.createOffer()
-              .then((offer) => {
-                return pc.setLocalDescription(offer).then(() => {
-                  if (ydocRef.current && providerRef.current) {
-                    const signalingMap = ydocRef.current.getMap('webrtc-signaling');
-                    const myClientID = providerRef.current.awareness.clientID;
-                    const offerKey = `offer_${myClientID}_${pcId}_${Date.now()}`;
-                    signalingMap.set(offerKey, JSON.stringify({
-                      offer,
-                      target: pcId,
-                      from: myClientID
-                    }));
-                  }
-                });
-              })
-              .catch(err => console.error("Error sending offer for screen share:", err));
+            renegotiate(pcId, pc);
           });
 
           if (videoTrack) {
@@ -734,22 +739,7 @@ export default function IDELayout() {
           });
           if (hasRemoved) {
             // Renegotiate
-            pc.createOffer()
-              .then((offer) => {
-                return pc.setLocalDescription(offer).then(() => {
-                  if (ydocRef.current && providerRef.current) {
-                    const signalingMap = ydocRef.current.getMap('webrtc-signaling');
-                    const myClientID = providerRef.current.awareness.clientID;
-                    const offerKey = `offer_${myClientID}_${pcId}_${Date.now()}`;
-                    signalingMap.set(offerKey, JSON.stringify({
-                      offer,
-                      target: pcId,
-                      from: myClientID
-                    }));
-                  }
-                });
-              })
-              .catch(err => console.error("Error renegotiating screen share close:", err));
+            renegotiate(pcId, pc);
           }
         });
       }
@@ -823,13 +813,19 @@ export default function IDELayout() {
           monitorStreamVolume(myClientID.toString(), stream);
 
           // Attach track to existing RTCPeerConnections
-          Object.values(peerConnectionsRef.current).forEach((pc) => {
+          Object.entries(peerConnectionsRef.current).forEach(([pcId, pc]) => {
             const senders = pc.getSenders();
-            const audioSender = senders.find(s => s.track && s.track.kind === 'audio');
+            const audioSender = senders.find(s => 
+              s.track && 
+              s.track.kind === 'audio' && 
+              !(localScreenStreamRef.current && localScreenStreamRef.current.getAudioTracks().some(t => t === s.track))
+            );
             if (audioSender) {
               audioSender.replaceTrack(track);
             } else {
               pc.addTrack(track, stream);
+              // Trigger renegotiation for the newly added microphone track
+              renegotiate(pcId, pc);
             }
           });
         } catch (err) {
