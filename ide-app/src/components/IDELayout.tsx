@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Editor from "@monaco-editor/react";
 import ShareModal from "./ShareModal";
 import * as Y from "yjs";
@@ -302,7 +302,8 @@ export default function IDELayout() {
     root: true
   });
 
-  const fetchWorkspaceFiles = async () => {
+  // Bug 7 fix: Wrap fetchWorkspaceFiles in useCallback to avoid stale closures
+  const fetchWorkspaceFiles = useCallback(async () => {
     try {
       const response = await fetch(`${BACKEND_API_URL}/workspace/${workspaceId}/files`, {
         headers: {
@@ -339,12 +340,12 @@ export default function IDELayout() {
     } catch (err) {
       console.error("Failed to fetch files from backend REST API:", err);
     }
-  };
+  }, [workspaceId]);
 
   // Fetch workspace files from backend on component mount
   useEffect(() => {
     fetchWorkspaceFiles();
-  }, []);
+  }, [fetchWorkspaceFiles]);
 
   // Fallback Polling: Fetch workspace files list every 5 seconds to ensure sync
   // even if WebSocket connection is blocked by ngrok
@@ -353,7 +354,7 @@ export default function IDELayout() {
       fetchWorkspaceFiles();
     }, 5000);
     return () => clearInterval(interval);
-  }, [workspaceId]);
+  }, [workspaceId, fetchWorkspaceFiles]);
 
   // Editor states
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark");
@@ -392,7 +393,8 @@ export default function IDELayout() {
               name: state.user.name,
               avatar: state.user.avatar,
               color: state.user.color,
-              isMe: clientID === providerRef.current.awareness.clientID
+              // Bug 11 fix: guard against null providerRef.current
+              isMe: clientID === providerRef.current?.awareness?.clientID
             });
           }
         });
@@ -440,8 +442,9 @@ export default function IDELayout() {
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
 
   // Collaborative Call states
-  const [isCallActive, setIsCallActive] = useState(true);
-  const [isCallPanelOpen, setIsCallPanelOpen] = useState(true);
+  // Bug 4 fix: Don't start call automatically — wait for user to join
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [isCallPanelOpen, setIsCallPanelOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -607,16 +610,16 @@ export default function IDELayout() {
     }
     setIsSharingScreen(false);
 
-    // Close all peer connections
+    // Close all peer connections (Bug 12 fix: log errors instead of swallowing)
     Object.keys(peerConnectionsRef.current).forEach(pcId => {
-      try { peerConnectionsRef.current[pcId].close(); } catch (_) {}
+      try { peerConnectionsRef.current[pcId].close(); } catch (e) { console.debug('Error closing peer connection:', e); }
       delete peerConnectionsRef.current[pcId];
     });
     peerConnectionsRef.current = {};
 
-    // Remove all audio elements from DOM
+    // Remove all audio elements from DOM (Bug 12 fix: log errors)
     Object.keys(audioElementsRef.current).forEach(pcId => {
-      try { audioElementsRef.current[pcId].pause(); audioElementsRef.current[pcId].srcObject = null; audioElementsRef.current[pcId].remove(); } catch (_) {}
+      try { audioElementsRef.current[pcId].pause(); audioElementsRef.current[pcId].srcObject = null; audioElementsRef.current[pcId].remove(); } catch (e) { console.debug('Error removing audio element:', e); }
       delete audioElementsRef.current[pcId];
     });
     audioElementsRef.current = {};
@@ -715,7 +718,12 @@ export default function IDELayout() {
       const processor = audioCtx.createScriptProcessor(2048, 1, 1);
 
       source.connect(processor);
-      processor.connect(audioCtx.destination);
+      // Bug 6 fix: Connect to a silent gain node instead of audioCtx.destination
+      // to prevent audio feedback loop (raw mic playing back through speakers)
+      const silentGain = audioCtx.createGain();
+      silentGain.gain.value = 0;
+      processor.connect(silentGain);
+      silentGain.connect(audioCtx.destination);
 
       let speakingCounter = 0;
       const threshold = 0.008;
@@ -842,6 +850,9 @@ export default function IDELayout() {
     handleScreenSharing();
   }, [isSharingScreen]);
 
+  // Bug 3 fix: Track ICE candidate polling intervals for proper cleanup
+  const iceIntervalsRef = useRef<number[]>([]);
+
   // WebRTC Audio & Video Calls & Signalling via Yjs
   useEffect(() => {
     if (!providerReady || !ydocRef.current || !providerRef.current) return;
@@ -854,11 +865,11 @@ export default function IDELayout() {
     const signalingMap = doc.getMap('webrtc-signaling');
 
     if (!isCallActive) {
-      // CLEAN UP EVERYTHING INSTANTLY!
+      // CLEAN UP EVERYTHING INSTANTLY! (Bug 12 fix: log errors)
       Object.keys(peerConnectionsRef.current).forEach((pcId) => {
         try {
           peerConnectionsRef.current[pcId].close();
-        } catch (e) {}
+        } catch (e) { console.debug('Error closing peer connection during cleanup:', e); }
         delete peerConnectionsRef.current[pcId];
       });
       peerConnectionsRef.current = {};
@@ -866,7 +877,7 @@ export default function IDELayout() {
       Object.keys(audioElementsRef.current).forEach((pcId) => {
         try {
           audioElementsRef.current[pcId].remove();
-        } catch (e) {}
+        } catch (e) { console.debug('Error removing audio element during cleanup:', e); }
         delete audioElementsRef.current[pcId];
       });
       audioElementsRef.current = {};
@@ -1096,15 +1107,21 @@ export default function IDELayout() {
                 pc.addIceCandidate(new RTCIceCandidate(data.candidate))
                   .catch(err => console.error("Error adding ICE candidate:", err));
               } else {
-                // Queue the candidate if description is not set yet
-                const checkInterval = setInterval(() => {
+                // Bug 3 fix: Track polling intervals for cleanup to prevent memory leaks
+                const checkInterval = window.setInterval(() => {
                   if (pc.remoteDescription) {
                     pc.addIceCandidate(new RTCIceCandidate(data.candidate))
                       .catch(err => console.error("Error adding ICE candidate:", err));
                     clearInterval(checkInterval);
+                    // Remove from tracked intervals
+                    iceIntervalsRef.current = iceIntervalsRef.current.filter(id => id !== checkInterval);
                   }
                 }, 100);
-                setTimeout(() => clearInterval(checkInterval), 5000);
+                iceIntervalsRef.current.push(checkInterval);
+                setTimeout(() => {
+                  clearInterval(checkInterval);
+                  iceIntervalsRef.current = iceIntervalsRef.current.filter(id => id !== checkInterval);
+                }, 5000);
               }
             }
           } catch (e) {
@@ -1147,8 +1164,13 @@ export default function IDELayout() {
 
     return () => {
       signalingMap.unobserve(handleSignalingObserve);
+      // Bug 3 fix: Clear all tracked ICE polling intervals on cleanup
+      iceIntervalsRef.current.forEach(id => clearInterval(id));
+      iceIntervalsRef.current = [];
     };
-  }, [providerReady, activeCollaborators.length, isCallActive, isMuted, isDeafened]);
+    // Bug 5 fix: Use stringified collaborator IDs instead of .length
+    // to detect identity changes (not just count changes)
+  }, [providerReady, JSON.stringify(activeCollaborators.map(c => c.id)), isCallActive, isMuted, isDeafened]);
 
   // Clean up WebRTC on unmount
   useEffect(() => {
@@ -1457,9 +1479,9 @@ export default function IDELayout() {
     }
   };
 
-  // Close tab
-  const handleCloseTab = (e: React.MouseEvent, path: string) => {
-    e.stopPropagation();
+  // Close tab (Bug 1 fix: guard against null event from programmatic calls)
+  const handleCloseTab = (e: React.MouseEvent | null, path: string) => {
+    e?.stopPropagation();
     const newTabs = openTabs.filter(t => t !== path);
     setOpenTabs(newTabs);
 
@@ -3182,7 +3204,7 @@ export default function IDELayout() {
                     {/* Video */}
                     <div className="bg-black flex items-center justify-center" style={{ minHeight: '120px' }}>
                       <video
-                        ref={(el) => { if (el) { el.srcObject = stream; el.play().catch(() => {}); } }}
+                        ref={(el) => { if (el && el.srcObject !== stream) { el.srcObject = stream; el.play().catch(() => {}); } }}
                         autoPlay playsInline
                         className="w-full object-contain"
                         style={{ maxHeight: '160px' }}
@@ -4110,7 +4132,7 @@ export default function IDELayout() {
             {/* Video area */}
             <div className="flex-1 bg-black flex items-center justify-center overflow-hidden">
               <video
-                ref={(el) => { if (el) { el.srcObject = stream; el.play().catch(() => {}); } }}
+                ref={(el) => { if (el && el.srcObject !== stream) { el.srcObject = stream; el.play().catch(() => {}); } }}
                 autoPlay playsInline
                 className="w-full h-full object-contain"
               />
