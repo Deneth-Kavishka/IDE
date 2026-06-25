@@ -314,33 +314,38 @@ export default function IDELayout() {
         const data = await response.json();
         if (Array.isArray(data) && data.length > 0) {
           const filesMap: Record<string, MockFile> = {};
-          data.forEach((file: any) => {
-            const filePath = file.path || file.name || `src/${file.id || file.name}`;
-            filesMap[filePath] = {
-              id: file.id || file.file_id || filePath,
-              name: file.name,
-              path: filePath,
-              language: file.language || "typescript",
-              content: file.content || ""
-            };
+          setFiles(prev => {
+            data.forEach((file: any) => {
+              const filePath = file.path || file.name || `src/${file.id || file.name}`;
+              // Prevent overwriting the active file's content with old backend data while editing
+              const existingContent = prev[filePath]?.content ?? "";
+              const newContent = (filePath === activeFilePath && existingContent) ? existingContent : (file.content || "");
+              filesMap[filePath] = {
+                id: file.id || file.file_id || filePath,
+                name: file.name,
+                path: filePath,
+                language: file.language || "typescript",
+                content: newContent
+              };
+            });
+            return filesMap;
           });
-          setFiles(filesMap);
           setOpenTabs(prev => {
             // Keep existing tabs if they are still valid in the new files map
-            const validPrev = prev.filter(p => filesMap[p]);
+            const validPrev = prev.filter(p => filesMap[p] || p === activeFilePath);
             if (validPrev.length > 0) return validPrev;
-            return Object.keys(filesMap);
+            return Object.keys(filesMap).length > 0 ? Object.keys(filesMap) : prev;
           });
           setActiveFilePath(prev => {
-            if (filesMap[prev]) return prev;
-            return Object.keys(filesMap)[0];
+            if (filesMap[prev] || prev === activeFilePath) return prev;
+            return Object.keys(filesMap)[0] || prev;
           });
         }
       }
     } catch (err) {
       console.error("Failed to fetch files from backend REST API:", err);
     }
-  }, [workspaceId]);
+  }, [workspaceId, activeFilePath]);
 
   // Fetch workspace files from backend on component mount
   useEffect(() => {
