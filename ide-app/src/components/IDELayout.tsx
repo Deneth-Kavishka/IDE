@@ -290,6 +290,41 @@ export default function IDELayout() {
   const [cursorBlinking, setCursorBlinking] = useState<"smooth" | "blink" | "solid" | "expand">("smooth");
   const [autoSave, setAutoSave] = useState<boolean>(false);
   const [activeCollaborators, setActiveCollaborators] = useState<any[]>([]);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [userNameInput, setUserNameInput] = useState("");
+
+  const handleSaveName = () => {
+    setIsEditingName(false);
+    if (!userNameInput.trim()) return;
+
+    if (localUserRef.current) {
+      const newProfile = { 
+        ...localUserRef.current, 
+        name: userNameInput.trim(),
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(userNameInput.trim())}&backgroundColor=b6e3f4`
+      };
+      localUserRef.current = newProfile;
+      if (providerRef.current) {
+        providerRef.current.awareness.setLocalStateField('user', newProfile);
+        
+        // Update local collaborators list immediately
+        const states = providerRef.current.awareness.getStates();
+        const collabs: any[] = [];
+        states.forEach((state: any, clientID: number) => {
+          if (state.user) {
+            collabs.push({
+              id: clientID,
+              name: state.user.name,
+              avatar: state.user.avatar,
+              color: state.user.color,
+              isMe: clientID === providerRef.current.awareness.clientID
+            });
+          }
+        });
+        setActiveCollaborators(collabs);
+      }
+    }
+  };
 
   // New Editor Settings
   const [fontFamily, setFontFamily] = useState<string>("Fira Code");
@@ -2311,9 +2346,35 @@ export default function IDELayout() {
                   >
                     <img src={collab.avatar} className="w-14 h-14 rounded-full" alt={collab.name} />
                     <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
-                      <span className="text-[9px] font-medium text-white truncate">
-                        {collab.name} {collab.isMe && "(You)"}
-                      </span>
+                      {collab.isMe && isEditingName ? (
+                        <input
+                          type="text"
+                          value={userNameInput}
+                          onChange={(e) => setUserNameInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveName();
+                            if (e.key === "Escape") setIsEditingName(false);
+                          }}
+                          onBlur={handleSaveName}
+                          autoFocus
+                          onClick={(e) => e.stopPropagation()}
+                          className="bg-slate-800 text-white text-[9px] px-1 py-0.5 rounded outline-none border border-indigo-500 w-20"
+                        />
+                      ) : (
+                        <span 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (collab.isMe) {
+                              setUserNameInput(collab.name);
+                              setIsEditingName(true);
+                            }
+                          }}
+                          className={`text-[9px] font-medium text-white truncate cursor-pointer ${collab.isMe ? "hover:underline hover:text-indigo-300" : ""}`}
+                          title={collab.isMe ? "Click to change name" : undefined}
+                        >
+                          {collab.name} {collab.isMe && "(You)"}
+                        </span>
+                      )}
                       {collab.isMe ? (
                         isMuted ? <MicOff className="w-2.5 h-2.5 text-red-400" /> : <Mic className="w-2.5 h-2.5 text-emerald-400" />
                       ) : (

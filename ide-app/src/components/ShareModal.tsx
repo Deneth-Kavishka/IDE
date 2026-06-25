@@ -132,18 +132,20 @@ export default function ShareModal({ isOpen, onClose, theme = "vs-dark", workspa
             <div className="flex flex-col gap-3.5">
 
               {/* Owner */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-indigo-900/40 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-sm shadow-[0_0_10px_rgba(99,102,241,0.2)]">
-                    ME
+              {(!activeCollaborators || activeCollaborators.length === 0) && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-indigo-900/40 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-sm shadow-[0_0_10px_rgba(99,102,241,0.2)]">
+                      ME
+                    </div>
+                    <div className="flex flex-col">
+                      <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-white" : "text-slate-800"}`}>You</span>
+                      <span className="text-[11px] text-slate-500 font-mono">owner@antigravity.studio</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                    <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-white" : "text-slate-800"}`}>You</span>
-                    <span className="text-[11px] text-slate-500 font-mono">owner@antigravity.studio</span>
-                  </div>
+                  <span className="text-xs font-semibold text-slate-500 px-3 uppercase tracking-wider">Owner</span>
                 </div>
-                <span className="text-xs font-semibold text-slate-500 px-3 uppercase tracking-wider">Owner</span>
-              </div>
+              )}
 
               {/* Dynamic Collaborators */}
               {activeCollaborators && activeCollaborators.length > 0 ? (
