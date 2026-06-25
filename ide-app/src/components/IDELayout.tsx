@@ -676,13 +676,15 @@ export default function IDELayout() {
     const handleScreenSharing = async () => {
       if (isSharingScreen && !localScreenStreamRef.current) {
         try {
-          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
           localScreenStreamRef.current = stream;
-          const track = stream.getVideoTracks()[0];
+          const videoTrack = stream.getVideoTracks()[0];
 
-          // Add video track to all peer connections
+          // Add all tracks (video and audio, if present) to all peer connections
           Object.entries(peerConnectionsRef.current).forEach(([pcId, pc]) => {
-            pc.addTrack(track, stream);
+            stream.getTracks().forEach((track) => {
+              pc.addTrack(track, stream);
+            });
             // Trigger renegotiation offer
             pc.createOffer()
               .then((offer) => {
@@ -702,9 +704,11 @@ export default function IDELayout() {
               .catch(err => console.error("Error sending offer for screen share:", err));
           });
 
-          track.onended = () => {
-            setIsSharingScreen(false);
-          };
+          if (videoTrack) {
+            videoTrack.onended = () => {
+              setIsSharingScreen(false);
+            };
+          }
         } catch (err) {
           console.warn("Screen share cancelled or failed:", err);
           setIsSharingScreen(false);
@@ -714,12 +718,21 @@ export default function IDELayout() {
         localScreenStreamRef.current.getTracks().forEach(t => t.stop());
         localScreenStreamRef.current = null;
 
-        // Remove video sender from peer connections
+        // Remove screen share senders from peer connections
         Object.entries(peerConnectionsRef.current).forEach(([pcId, pc]) => {
           const senders = pc.getSenders();
-          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-          if (videoSender) {
-            pc.removeTrack(videoSender);
+          let hasRemoved = false;
+          senders.forEach((sender) => {
+            if (
+              sender.track &&
+              (sender.track.kind === 'video' ||
+                (sender.track.kind === 'audio' && sender.track !== localAudioTrackRef.current))
+            ) {
+              pc.removeTrack(sender);
+              hasRemoved = true;
+            }
+          });
+          if (hasRemoved) {
             // Renegotiate
             pc.createOffer()
               .then((offer) => {
@@ -785,6 +798,12 @@ export default function IDELayout() {
       }
       localAudioTrackRef.current = null;
 
+      if (localScreenStreamRef.current) {
+        localScreenStreamRef.current.getTracks().forEach(t => t.stop());
+        localScreenStreamRef.current = null;
+      }
+      setIsSharingScreen(false);
+
       setRemoteScreenStreams({});
       return;
     }
@@ -844,10 +863,9 @@ export default function IDELayout() {
         pc.addTrack(localAudioTrackRef.current, localStreamRef.current);
       }
       if (localScreenStreamRef.current) {
-        const screenTrack = localScreenStreamRef.current.getVideoTracks()[0];
-        if (screenTrack) {
-          pc.addTrack(screenTrack, localScreenStreamRef.current);
-        }
+        localScreenStreamRef.current.getTracks().forEach((track) => {
+          pc.addTrack(track, localScreenStreamRef.current!);
+        });
       }
 
       // Send local ICE candidates to the target collaborator
@@ -882,6 +900,11 @@ export default function IDELayout() {
             };
           } else {
             // Audio stream
+            if (remoteStream.getVideoTracks().length > 0) {
+              // This is screenshare audio, which is played by the screen share <video> element.
+              // We do not assign it to the mic <audio> element to prevent overwriting.
+              return;
+            }
             let audio = audioElementsRef.current[pcId];
             if (!audio) {
               audio = document.createElement('audio');
@@ -950,6 +973,14 @@ export default function IDELayout() {
                     if (!senders.some(s => s.track === localAudioTrackRef.current)) {
                       pc.addTrack(localAudioTrackRef.current, localStreamRef.current);
                     }
+                  }
+                  if (localScreenStreamRef.current) {
+                    const senders = pc.getSenders();
+                    localScreenStreamRef.current.getTracks().forEach((track) => {
+                      if (!senders.some(s => s.track === track)) {
+                        pc.addTrack(track, localScreenStreamRef.current!);
+                      }
+                    });
                   }
                   return pc.createAnswer();
                 })
