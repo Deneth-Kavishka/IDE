@@ -1,12 +1,13 @@
-﻿import { useState } from 'react';
-import { X, UserPlus, Globe, Copy, ChevronDown, Check } from 'lucide-react';
+import { useState } from 'react';
+import { X, UserPlus, Globe, ChevronDown, Check } from 'lucide-react';
 
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
+  theme?: "vs-dark" | "light";
 }
 
-export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
+export default function ShareModal({ isOpen, onClose, theme = "vs-dark" }: ShareModalProps) {
   if (!isOpen) return null;
 
   const [inviteRole, setInviteRole] = useState("Editor");
@@ -46,14 +47,29 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
     }
   };
 
+  const isDark = theme === "vs-dark";
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-[#15151c] border border-slate-700/60 w-full max-w-[520px] rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden text-slate-300 font-sans relative">
+      <div className={`w-full max-w-[520px] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-colors duration-250 ${
+        isDark 
+          ? "bg-[#15151c] border border-slate-700/60 text-slate-300" 
+          : "bg-white border border-slate-200 text-slate-700 shadow-slate-200/50"
+      }`}>
 
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800/80 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white tracking-wide">Share Workspace</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-slate-800/60 rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer">
+        <div className={`px-6 py-4 border-b flex items-center justify-between transition-colors duration-250 ${
+          isDark ? "border-slate-800/80" : "border-slate-100"
+        }`}>
+          <h2 className={`text-lg font-semibold tracking-wide transition-colors duration-250 ${
+            isDark ? "text-white" : "text-slate-800"
+          }`}>Share Workspace</h2>
+          <button 
+            onClick={onClose} 
+            className={`p-1.5 rounded-xl transition-colors cursor-pointer ${
+              isDark ? "hover:bg-slate-800/60 text-slate-400 hover:text-white" : "hover:bg-slate-100 text-slate-500 hover:text-slate-800"
+            }`}
+          >
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -64,7 +80,11 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
           <div className="flex flex-col gap-2.5">
             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Invite Collaborators</label>
             <div className="flex items-center gap-2">
-              <div className="flex-1 relative flex items-center bg-[#0d0d10]/80 border border-[#2d2d35] rounded-xl focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all shadow-inner">
+              <div className={`flex-1 relative flex items-center border rounded-xl transition-all shadow-inner ${
+                isDark 
+                  ? "bg-[#0d0d10]/80 border-[#2d2d35] focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/50" 
+                  : "bg-[#f8fafc] border-slate-200 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500/50"
+              }`}>
                 <input
                   type="text"
                   value={inviteInput}
@@ -73,14 +93,20 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                     if (e.key === 'Enter') handleInvite();
                   }}
                   placeholder="Enter usernames or emails..."
-                  className="w-full bg-transparent text-sm text-white px-3.5 py-3 outline-none placeholder-slate-600 font-mono"
+                  className={`w-full bg-transparent text-sm px-3.5 py-3 outline-none font-mono ${
+                    isDark ? "text-white placeholder-slate-600" : "text-slate-800 placeholder-slate-400"
+                  }`}
                 />
               </div>
               <div className="relative group shrink-0">
                 <select
                   value={inviteRole}
                   onChange={(e) => setInviteRole(e.target.value)}
-                  className="appearance-none bg-[#1b1b22] border border-[#2d2d35] hover:border-slate-500 text-slate-300 text-sm px-4 py-3 pr-8 rounded-xl outline-none cursor-pointer transition-colors shadow-sm"
+                  className={`appearance-none border text-sm px-4 py-3 pr-8 rounded-xl outline-none cursor-pointer transition-colors shadow-sm ${
+                    isDark 
+                      ? "bg-[#1b1b22] border-[#2d2d35] text-slate-300 hover:border-slate-500" 
+                      : "bg-white border-slate-200 text-slate-700 hover:border-slate-400"
+                  }`}
                 >
                   <option value="Editor">Editor</option>
                   <option value="Viewer">Viewer</option>
@@ -109,7 +135,7 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                     ME
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-white">You</span>
+                    <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-white" : "text-slate-800"}`}>You</span>
                     <span className="text-[11px] text-slate-500 font-mono">owner@antigravity.studio</span>
                   </div>
                 </div>
@@ -120,9 +146,9 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
               {collaborators.map((collab, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <img src={collab.avatar} className="w-9 h-9 rounded-full border border-slate-700/80 shadow-sm" alt={collab.name} />
+                    <img src={collab.avatar} className={`w-9 h-9 rounded-full border shadow-sm ${isDark ? "border-slate-700/80" : "border-slate-200"}`} alt={collab.name} />
                     <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-slate-200">{collab.name}</span>
+                      <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-slate-200" : "text-slate-750"}`}>{collab.name}</span>
                       <span className="text-[11px] text-slate-500 font-mono">{collab.email}</span>
                     </div>
                   </div>
@@ -130,7 +156,11 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
                     <select
                       value={collab.role}
                       onChange={(e) => handleRoleChange(index, e.target.value)}
-                      className="appearance-none bg-transparent hover:bg-slate-800 border border-transparent hover:border-slate-700 text-slate-300 text-xs font-medium px-3 py-1.5 pr-7 rounded-lg outline-none cursor-pointer transition-colors"
+                      className={`appearance-none bg-transparent border border-transparent text-xs font-medium px-3 py-1.5 pr-7 rounded-lg outline-none cursor-pointer transition-colors ${
+                        isDark 
+                          ? "hover:bg-slate-800 hover:border-slate-700 text-slate-300" 
+                          : "hover:bg-slate-100 hover:border-slate-250 text-slate-750"
+                      }`}
                     >
                       <option value="Editor">Editor</option>
                       <option value="Viewer">Viewer</option>
@@ -144,16 +174,18 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
             </div>
           </div>
 
-          <hr className="border-slate-800/60 my-1" />
+          <hr className={`my-1 ${isDark ? "border-slate-800/60" : "border-slate-150"}`} />
 
           {/* General Access (Link Sharing) */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-slate-800/40 border border-slate-700/60 flex items-center justify-center shrink-0 shadow-inner">
+              <div className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 shadow-inner ${
+                isDark ? "bg-slate-800/40 border-slate-700/60" : "bg-[#f8fafc] border-slate-200"
+              }`}>
                 <Globe className="w-5 h-5 text-slate-400" />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-semibold text-slate-200">Anyone with the link</span>
+                <span className={`text-sm font-semibold transition-colors duration-250 ${isDark ? "text-slate-200" : "text-slate-700"}`}>Anyone with the link</span>
                 <span className="text-[11px] text-slate-500 max-w-[200px] truncate">Anyone on the internet with the link can view</span>
               </div>
             </div>
@@ -162,7 +194,11 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
               <select
                 value={linkRole}
                 onChange={(e) => setLinkRole(e.target.value)}
-                className="appearance-none bg-transparent hover:bg-slate-800 border border-transparent hover:border-slate-700 text-slate-300 text-xs font-medium px-3 py-1.5 pr-7 rounded-lg outline-none cursor-pointer transition-colors"
+                className={`appearance-none bg-transparent border border-transparent text-xs font-medium px-3 py-1.5 pr-7 rounded-lg outline-none cursor-pointer transition-colors ${
+                  isDark 
+                    ? "hover:bg-slate-800 hover:border-slate-700 text-slate-300" 
+                    : "hover:bg-slate-100 hover:border-slate-250 text-slate-750"
+                }`}
               >
                 <option value="Restricted">Restricted</option>
                 <option value="Viewer">Viewer</option>
@@ -175,16 +211,29 @@ export default function ShareModal({ isOpen, onClose }: ShareModalProps) {
         </div>
 
         {/* Footer Actions */}
-        <div className="bg-[#0f0f12]/80 px-6 py-4 border-t border-slate-800/60 flex items-center justify-between">
+        <div className={`px-6 py-4 border-t flex items-center justify-between transition-colors duration-250 ${
+          isDark ? "bg-[#0f0f12]/80 border-slate-800/60" : "bg-[#f8fafc] border-slate-100"
+        }`}>
           <button
             onClick={handleCopyLink}
-            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-xl transition-all border border-[#2d2d35] hover:bg-slate-800 hover:border-slate-500 hover:text-white cursor-pointer shadow-sm"
+            className={`flex items-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-xl transition-all border cursor-pointer shadow-sm ${
+              isDark 
+                ? "border-[#2d2d35] hover:bg-slate-800 hover:border-slate-500 hover:text-white" 
+                : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-350 text-slate-700 hover:text-slate-900"
+            }`}
           >
-            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
+            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Globe className="w-4 h-4 text-slate-400" />}
             <span className={copied ? "text-emerald-400" : ""}>{copied ? "Link Copied!" : "Copy link"}</span>
           </button>
 
-          <button onClick={onClose} className="bg-white hover:bg-slate-200 text-black px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md shadow-white/10 hover:shadow-white/20 cursor-pointer">
+          <button 
+            onClick={onClose} 
+            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-md cursor-pointer ${
+              isDark 
+                ? "bg-white hover:bg-slate-200 text-black shadow-white/10 hover:shadow-white/20" 
+                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-950/20 hover:shadow-indigo-950/30"
+            }`}
+          >
             Done
           </button>
         </div>

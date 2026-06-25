@@ -253,6 +253,25 @@ export default function IDELayout() {
   const [cursorBlinking, setCursorBlinking] = useState<"smooth" | "blink" | "solid" | "expand">("smooth");
   const [autoSave, setAutoSave] = useState<boolean>(false);
 
+  // New Editor Settings
+  const [fontFamily, setFontFamily] = useState<string>("Fira Code");
+  const [lineNumbers, setLineNumbers] = useState<"on" | "off" | "relative">("on");
+  const [bracketPairColorization, setBracketPairColorization] = useState<boolean>(true);
+  const [formatOnSave, setFormatOnSave] = useState<boolean>(false);
+  const [renderWhitespace, setRenderWhitespace] = useState<"none" | "boundary" | "all">("none");
+
+  // New Interface Settings
+  const [sidebarPosition, setSidebarPosition] = useState<"left" | "right">("left");
+  const [showStatusBar, setShowStatusBar] = useState<boolean>(true);
+  const [showBreadcrumbs, setShowBreadcrumbs] = useState<boolean>(true);
+  const [glassBlur, setGlassBlur] = useState<number>(24);
+
+  // New AI Settings
+  const [aiAutocompleteMode, setAiAutocompleteMode] = useState<"always" | "manual" | "disabled">("always");
+  const [aiMaxTokens, setAiMaxTokens] = useState<number>(1024);
+  const [aiTemperature, setAiTemperature] = useState<number>(0.7);
+  const [aiSystemPrompt, setAiSystemPrompt] = useState<string>("You are an elite developer assistant. Write clean, comments-documented, modern code.");
+
   // Sync theme with body class
   useEffect(() => {
     if (editorTheme === "vs-dark") {
@@ -954,7 +973,7 @@ export default function IDELayout() {
       </header>
 
       {/* Main Workspace Body */}
-      <div className="flex flex-1 w-full overflow-hidden relative">
+      <div className={`flex flex-1 w-full overflow-hidden relative ${sidebarPosition === "right" ? "flex-row-reverse" : ""}`}>
 
         {/* 1. Activity Bar (Far Left) */}
         <div className={`w-13 flex flex-col justify-between items-center py-3 z-20 shrink-0 border-r transition-colors duration-250 ${
@@ -1767,21 +1786,23 @@ export default function IDELayout() {
             </div>
 
             {/* Breadcrumb line */}
-            <div className={`h-6.5 flex items-center px-4.5 text-[10px] font-mono gap-1.5 shrink-0 border-b transition-colors duration-250 ${
-              editorTheme === "vs-dark" ? "bg-[#131317] border-slate-900 text-slate-500" : "bg-[#ffffff] border-[#e5e7eb] text-slate-600"
-            }`}>
-              <span className="hover:text-slate-300 cursor-pointer">ide-app</span>
-              <ChevronRight className="w-3 h-3" />
-              <span className="hover:text-slate-300 cursor-pointer">src</span>
-              <ChevronRight className="w-3 h-3" />
-              {activeFile?.path?.includes("components") && (
-                <>
-                  <span className="hover:text-slate-300 cursor-pointer">components</span>
-                  <ChevronRight className="w-3 h-3" />
-                </>
-              )}
-              <span className={`font-medium ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`}>{activeFile?.name}</span>
-            </div>
+            {showBreadcrumbs && (
+              <div className={`h-6.5 flex items-center px-4.5 text-[10px] font-mono gap-1.5 shrink-0 border-b transition-colors duration-250 ${
+                editorTheme === "vs-dark" ? "bg-[#131317] border-slate-900 text-slate-500" : "bg-[#ffffff] border-[#e5e7eb] text-slate-600"
+              }`}>
+                <span className="hover:text-slate-300 cursor-pointer">ide-app</span>
+                <ChevronRight className="w-3 h-3" />
+                <span className="hover:text-slate-300 cursor-pointer">src</span>
+                <ChevronRight className="w-3 h-3" />
+                {activeFile?.path?.includes("components") && (
+                  <>
+                    <span className="hover:text-slate-300 cursor-pointer">components</span>
+                    <ChevronRight className="w-3 h-3" />
+                  </>
+                )}
+                <span className={`font-medium ${editorTheme === "vs-dark" ? "text-indigo-400" : "text-indigo-600"}`}>{activeFile?.name}</span>
+              </div>
+            )}
 
             {/* Monaco Editor Container */}
             <div className={`flex-1 w-full relative ${editorTheme === "vs-dark" ? "bg-[#1e1e1e]" : "bg-white"}`}>
@@ -1805,13 +1826,15 @@ export default function IDELayout() {
                     vertical: "visible",
                     horizontal: "visible"
                   },
-                  lineNumbers: "on",
+                  lineNumbers: lineNumbers,
+                  renderWhitespace: renderWhitespace,
+                  bracketPairColorization: { enabled: bracketPairColorization },
                   roundedSelection: true,
                   scrollBeyondLastLine: false,
                   readOnly: false,
                   automaticLayout: true,
                   cursorSmoothCaretAnimation: "on",
-                  fontFamily: "Fira Code, Menlo, Monaco, Consolas, monospace",
+                  fontFamily: `${fontFamily}, Menlo, Monaco, Consolas, monospace`,
                   fontLigatures: true,
                   renderLineHighlight: "all",
                   quickSuggestions: { other: true, comments: true, strings: true },
@@ -2064,7 +2087,11 @@ export default function IDELayout() {
           {/* Floating Call UI Panel */}
           {isCallActive && isCallPanelOpen && (
             <div
-              className="absolute w-72 bg-[#141419]/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl shadow-black/60 z-40 overflow-hidden flex flex-col animate-slide-up"
+              className={`absolute w-72 backdrop-blur-xl border rounded-2xl shadow-2xl z-40 overflow-hidden flex flex-col animate-slide-up ${
+                editorTheme === "vs-dark" 
+                  ? "bg-[#141419]/95 border-slate-700/50 shadow-black/60 text-white" 
+                  : "bg-white/95 border-slate-200 shadow-slate-200/50 text-slate-800"
+              }`}
               style={{
                 top: `${24 + callPanelPos.y}px`,
                 right: `${24 - callPanelPos.x}px`
@@ -2072,16 +2099,22 @@ export default function IDELayout() {
             >
               {/* Call Header */}
               <div
-                className="bg-[#1b1b22] px-4 py-2.5 border-b border-slate-800/80 flex items-center justify-between cursor-move select-none"
+                className={`px-4 py-2.5 border-b flex items-center justify-between cursor-move select-none ${
+                  editorTheme === "vs-dark" ? "bg-[#1b1b22] border-slate-800/80" : "bg-slate-50 border-slate-200"
+                }`}
                 onMouseDown={handleMouseDown}
               >
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="text-[11px] font-bold tracking-wider text-slate-300 uppercase">Collab Session</span>
+                  <span className={`text-[11px] font-bold tracking-wider uppercase ${
+                    editorTheme === "vs-dark" ? "text-slate-300" : "text-slate-600"
+                  }`}>Collab Session</span>
                 </div>
                 <button
                   onClick={() => setIsCallPanelOpen(false)}
-                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+                  className={`p-1 rounded-lg transition-colors cursor-pointer ${
+                    editorTheme === "vs-dark" ? "text-slate-400 hover:text-white hover:bg-slate-800/50" : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/60"
+                  }`}
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <X className="w-4 h-4" />
@@ -2089,9 +2122,13 @@ export default function IDELayout() {
               </div>
 
               {/* Call Video/Avatars Grid */}
-              <div className="p-4 grid grid-cols-2 gap-3 bg-[#0d0d10]/40">
+              <div className={`p-4 grid grid-cols-2 gap-3 ${
+                editorTheme === "vs-dark" ? "bg-[#0d0d10]/40" : "bg-slate-50/50"
+              }`}>
                 {/* User 1 */}
-                <div className={`relative aspect-square rounded-xl overflow-hidden bg-slate-800/50 border-2 flex flex-col items-center justify-center group transition-all duration-300 ${
+                <div className={`relative aspect-square rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center group transition-all duration-300 ${
+                  editorTheme === "vs-dark" ? "bg-slate-800/50" : "bg-slate-100 border-slate-200"
+                } ${
                   isMuted ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)]" : "border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
                 }`}>
                   <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Alex&backgroundColor=b6e3f4" className="w-14 h-14 rounded-full" alt="Alex" />
@@ -2101,7 +2138,9 @@ export default function IDELayout() {
                   </div>
                 </div>
                 {/* User 2 */}
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-800/50 border border-slate-700/50 flex flex-col items-center justify-center group">
+                <div className={`relative aspect-square rounded-xl overflow-hidden border flex flex-col items-center justify-center group ${
+                  editorTheme === "vs-dark" ? "bg-slate-800/50 border-slate-700/50" : "bg-slate-100 border-slate-200"
+                }`}>
                   <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sam&backgroundColor=c0aede" className="w-14 h-14 rounded-full opacity-80" alt="Sam" />
                   <div className="absolute bottom-1.5 left-2 right-2 bg-black/60 backdrop-blur-md rounded-md px-1.5 py-0.5 flex items-center justify-between">
                     <span className="text-[9px] font-medium text-white truncate">Sam</span>
@@ -2109,7 +2148,11 @@ export default function IDELayout() {
                   </div>
                 </div>
                 {/* AI Agent Avatar */}
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-purple-950/20 border-2 border-purple-500/50 flex flex-col items-center justify-center group shadow-[0_0_15px_rgba(168,85,247,0.15)] col-span-2 h-28">
+                <div className={`relative aspect-square rounded-xl overflow-hidden border-2 flex flex-col items-center justify-center group col-span-2 h-28 ${
+                  editorTheme === "vs-dark" 
+                    ? "bg-purple-950/20 border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]" 
+                    : "bg-purple-50 border-purple-300 shadow-[0_0_12px_rgba(168,85,247,0.08)]"
+                }`}>
                   <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center border-2 border-purple-400/50 animate-pulse-glow-purple">
                      <Sparkles className="w-6 h-6 text-white" />
                   </div>
@@ -2129,11 +2172,13 @@ export default function IDELayout() {
               </div>
 
               {/* Call Controls */}
-              <div className="bg-[#1b1b22] p-3 flex justify-center gap-3 border-t border-slate-800/80">
+              <div className={`p-3 flex justify-center gap-3 border-t ${
+                editorTheme === "vs-dark" ? "bg-[#1b1b22] border-slate-800/80" : "bg-slate-50 border-slate-200"
+              }`}>
                 <button
                   onClick={() => setIsMuted(!isMuted)}
                   className={`p-2.5 rounded-full transition-colors cursor-pointer ${
-                    isMuted ? "bg-red-600 hover:bg-red-500 text-white" : "bg-slate-700/50 hover:bg-slate-600 text-white"
+                    isMuted ? "bg-red-600 hover:bg-red-500 text-white" : (editorTheme === "vs-dark" ? "bg-slate-700/50 hover:bg-slate-600 text-white" : "bg-slate-250 hover:bg-slate-300 text-slate-700")
                   }`}
                   title={isMuted ? "Unmute" : "Mute"}
                 >
@@ -2142,7 +2187,7 @@ export default function IDELayout() {
                 <button
                   onClick={() => setIsDeafened(!isDeafened)}
                   className={`p-2.5 rounded-full transition-colors cursor-pointer ${
-                    isDeafened ? "bg-red-600 hover:bg-red-500 text-white" : "bg-slate-700/50 hover:bg-slate-600 text-white"
+                    isDeafened ? "bg-red-600 hover:bg-red-500 text-white" : (editorTheme === "vs-dark" ? "bg-slate-700/50 hover:bg-slate-600 text-white" : "bg-slate-250 hover:bg-slate-300 text-slate-700")
                   }`}
                   title={isDeafened ? "Undeafen" : "Deafen"}
                 >
@@ -2151,7 +2196,9 @@ export default function IDELayout() {
                 <button
                   onClick={() => setIsSharingScreen(!isSharingScreen)}
                   className={`p-2.5 rounded-full transition-colors cursor-pointer ${
-                    isSharingScreen ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40" : "bg-slate-700/50 hover:bg-slate-600 text-white"
+                    isSharingScreen 
+                      ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40" 
+                      : (editorTheme === "vs-dark" ? "bg-slate-700/50 hover:bg-slate-600 text-white" : "bg-slate-250 hover:bg-slate-300 text-slate-700")
                   }`}
                   title={isSharingScreen ? "Stop Sharing Screen" : "Share Screen"}
                 >
@@ -2519,57 +2566,59 @@ export default function IDELayout() {
       </div>
 
       {/* 5. Status Bar (Bottom) */}
-      <footer className={`h-6.5 flex items-center justify-between px-4 text-[11px] select-none z-20 shrink-0 font-medium border-t transition-colors duration-250 ${
-        editorTheme === "vs-dark"
-          ? "bg-[#0d0d11] border-[#1c1c22] text-slate-400"
-          : "bg-white border-slate-200 text-slate-600 shadow-[0_-1px_3px_rgba(0,0,0,0.02)]"
-      }`}>
-        <div className="flex items-center gap-4">
-          <div className={`flex items-center gap-1 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
-            editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
-          }`}>
-            <GitBranch className="w-3.5 h-3.5" />
-            <span>main</span>
-          </div>
-          <div className={`flex items-center gap-2.5 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
-            editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
-          }`}>
-            <div className="flex items-center gap-1">
-              <span className="font-bold">0</span>
-              <X className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-red-400" : "text-red-600"}`} />
+      {showStatusBar && (
+        <footer className={`h-6.5 flex items-center justify-between px-4 text-[11px] select-none z-20 shrink-0 font-medium border-t transition-colors duration-250 ${
+          editorTheme === "vs-dark"
+            ? "bg-[#0d0d11] border-[#1c1c22] text-slate-400"
+            : "bg-white border-slate-200 text-slate-600 shadow-[0_-1px_3px_rgba(0,0,0,0.02)]"
+        }`}>
+          <div className="flex items-center gap-4">
+            <div className={`flex items-center gap-1 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
+              editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
+            }`}>
+              <GitBranch className="w-3.5 h-3.5" />
+              <span>main</span>
             </div>
-            <div className="flex items-center gap-1">
-              <span className="font-bold">0</span>
-              <Bug className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-amber-400" : "text-amber-600"}`} />
+            <div className={`flex items-center gap-2.5 px-2.5 py-0.5 cursor-pointer h-full transition-colors ${
+              editorTheme === "vs-dark" ? "hover:bg-slate-800/60 hover:text-slate-200" : "hover:bg-slate-100 hover:text-slate-900"
+            }`}>
+              <div className="flex items-center gap-1">
+                <span className="font-bold">0</span>
+                <X className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-red-400" : "text-red-600"}`} />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="font-bold">0</span>
+                <Bug className={`w-3 h-3 ${editorTheme === "vs-dark" ? "text-amber-400" : "text-amber-600"}`} />
+              </div>
+            </div>
+            <div
+              onClick={() => setBottomPanelOpen(prev => !prev)}
+              className={`hidden sm:flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 cursor-pointer h-full transition-colors ${
+                editorTheme === "vs-dark"
+                  ? "text-indigo-400 hover:bg-slate-800/60 hover:text-indigo-300"
+                  : "text-indigo-600 hover:bg-slate-100 hover:text-indigo-800"
+              }`}
+              title="Toggle Bottom Console Panel"
+            >
+              <TerminalSquare className="w-3.5 h-3.5 shrink-0" />
+              <span>Console: {bottomPanelOpen ? "OPEN" : "CLOSED"}</span>
             </div>
           </div>
-          <div
-            onClick={() => setBottomPanelOpen(prev => !prev)}
-            className={`hidden sm:flex items-center gap-1.5 text-[10px] font-mono px-2 py-0.5 cursor-pointer h-full transition-colors ${
-              editorTheme === "vs-dark"
-                ? "text-indigo-400 hover:bg-slate-800/60 hover:text-indigo-300"
-                : "text-indigo-600 hover:bg-slate-100 hover:text-indigo-800"
-            }`}
-            title="Toggle Bottom Console Panel"
-          >
-            <TerminalSquare className="w-3.5 h-3.5 shrink-0" />
-            <span>Console: {bottomPanelOpen ? "OPEN" : "CLOSED"}</span>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <span className={`px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>Ln 14, Col 5</span>
-          <span className={`px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>Spaces: 2</span>
-          <span className={`px-2 py-0.5 cursor-pointer h-full hidden sm:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>UTF-8</span>
-          <span className={`px-2 py-0.5 cursor-pointer h-full transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>TypeScript JSX</span>
-          <span className={`px-2.5 py-0.5 cursor-pointer h-full transition-colors flex items-center gap-1 ${
-            editorTheme === "vs-dark" ? "text-indigo-400 hover:bg-slate-800/60" : "text-indigo-600 hover:bg-slate-100"
-          }`}>
-            <Sparkles className={`w-3.5 h-3.5 ${aiStatus !== "idle" ? "animate-spin text-amber-500" : ""}`} />
-            <span>Copilot Sync'd</span>
-          </span>
-        </div>
-      </footer>
+          <div className="flex items-center gap-3">
+            <span className={`px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>Ln 14, Col 5</span>
+            <span className={`px-2 py-0.5 cursor-pointer h-full hidden md:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>Spaces: 2</span>
+            <span className={`px-2 py-0.5 cursor-pointer h-full hidden sm:inline transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>UTF-8</span>
+            <span className={`px-2 py-0.5 cursor-pointer h-full transition-colors ${editorTheme === "vs-dark" ? "hover:bg-slate-800/60" : "hover:bg-slate-100"}`}>TypeScript JSX</span>
+            <span className={`px-2.5 py-0.5 cursor-pointer h-full transition-colors flex items-center gap-1 ${
+              editorTheme === "vs-dark" ? "text-indigo-400 hover:bg-slate-800/60" : "text-indigo-600 hover:bg-slate-100"
+            }`}>
+              <Sparkles className={`w-3.5 h-3.5 ${aiStatus !== "idle" ? "animate-spin text-amber-500" : ""}`} />
+              <span>Copilot Sync'd</span>
+            </span>
+          </div>
+        </footer>
+      )}
 
       {/* Settings Modal */}
       {showSettings && (
@@ -2580,7 +2629,9 @@ export default function IDELayout() {
               : "linear-gradient(135deg, rgba(249,250,251,0.95) 0%, rgba(243,244,246,0.92) 100%)",
             border: editorTheme === "vs-dark"
               ? "1px solid rgba(51,51,68,0.4)"
-              : "1px solid rgba(203,213,225,0.4)"
+              : "1px solid rgba(203,213,225,0.4)",
+            backdropFilter: `blur(${glassBlur}px)`,
+            WebkitBackdropFilter: `blur(${glassBlur}px)`
           }}>
 
             {/* Modal Header */}
@@ -2652,33 +2703,92 @@ export default function IDELayout() {
                       <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Configure Monaco Editor behavior and appearance.</p>
                     </div>
 
-                    <div className="space-y-3">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={minimapEnabled}
-                          onChange={(e) => setMinimapEnabled(e.target.checked)}
-                          className="w-3.5 h-3.5 rounded accent-indigo-600"
-                        />
-                        <span className="font-semibold">Enable Minimap</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={autoSave}
-                          onChange={(e) => setAutoSave(e.target.checked)}
-                          className="w-3.5 h-3.5 rounded accent-indigo-600"
-                        />
-                        <span className="font-semibold">Auto-save</span>
-                      </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={minimapEnabled}
+                            onChange={(e) => setMinimapEnabled(e.target.checked)}
+                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
+                          />
+                          <span className="font-semibold">Enable Minimap</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={autoSave}
+                            onChange={(e) => setAutoSave(e.target.checked)}
+                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
+                          />
+                          <span className="font-semibold">Auto-save</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={bracketPairColorization}
+                            onChange={(e) => setBracketPairColorization(e.target.checked)}
+                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
+                          />
+                          <span className="font-semibold">Bracket Pair Colorization</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={formatOnSave}
+                            onChange={(e) => setFormatOnSave(e.target.checked)}
+                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
+                          />
+                          <span className="font-semibold">Format On Save</span>
+                        </label>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block">
+                          <span className="font-semibold">Font Family</span>
+                          <select
+                            value={fontFamily}
+                            onChange={(e) => setFontFamily(e.target.value)}
+                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                              editorTheme === "vs-dark"
+                                ? "bg-[#1b1b22] border-slate-700 text-white"
+                                : "bg-white border-slate-300 text-slate-800"
+                            }`}
+                          >
+                            <option value="Fira Code">Fira Code</option>
+                            <option value="JetBrains Mono">JetBrains Mono</option>
+                            <option value="Source Code Pro">Source Code Pro</option>
+                            <option value="Courier New">Courier New</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="font-semibold">Word Wrap</span>
+                          <select
+                            value={wordWrap}
+                            onChange={(e) => setWordWrap(e.target.value as "on" | "off")}
+                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                              editorTheme === "vs-dark"
+                                ? "bg-[#1b1b22] border-slate-700 text-white"
+                                : "bg-white border-slate-300 text-slate-800"
+                            }`}
+                          >
+                            <option value="on">On</option>
+                            <option value="off">Off</option>
+                          </select>
+                        </label>
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       <label className="block">
-                        <span className="font-semibold">Word Wrap</span>
+                        <span className="font-semibold">Line Numbers</span>
                         <select
-                          value={wordWrap}
-                          onChange={(e) => setWordWrap(e.target.value as "on" | "off")}
+                          value={lineNumbers}
+                          onChange={(e) => setLineNumbers(e.target.value as "on" | "off" | "relative")}
                           className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                             editorTheme === "vs-dark"
                               ? "bg-[#1b1b22] border-slate-700 text-white"
@@ -2687,9 +2797,29 @@ export default function IDELayout() {
                         >
                           <option value="on">On</option>
                           <option value="off">Off</option>
+                          <option value="relative">Relative</option>
                         </select>
                       </label>
 
+                      <label className="block">
+                        <span className="font-semibold">Render Whitespace</span>
+                        <select
+                          value={renderWhitespace}
+                          onChange={(e) => setRenderWhitespace(e.target.value as "none" | "boundary" | "all")}
+                          className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            editorTheme === "vs-dark"
+                              ? "bg-[#1b1b22] border-slate-700 text-white"
+                              : "bg-white border-slate-300 text-slate-800"
+                          }`}
+                        >
+                          <option value="none">None</option>
+                          <option value="boundary">Boundary</option>
+                          <option value="all">All</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                       <label className="block">
                         <span className="font-semibold">Cursor Blinking</span>
                         <select
@@ -2718,7 +2848,7 @@ export default function IDELayout() {
                           max="8"
                           value={tabSize}
                           onChange={(e) => setTabSize(parseInt(e.target.value))}
-                          className="w-full mt-1"
+                          className="w-full mt-2.5 accent-indigo-600 cursor-pointer"
                         />
                       </label>
                     </div>
@@ -2732,14 +2862,78 @@ export default function IDELayout() {
                       <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Adjust IDE layout, sidebars, and panel visibility.</p>
                     </div>
 
-                    <div className={`p-3 rounded-lg border ${
-                      editorTheme === "vs-dark"
-                        ? "bg-blue-950/20 border-blue-900/40"
-                        : "bg-blue-50/50 border-blue-200/50"
-                    }`}>
-                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-blue-300" : "text-blue-700"}`}>
-                        Panel visibility, resizing, and layout options are managed from the header controls. Use the toggle buttons in the top toolbar to show/hide sidebars and the bottom panel.
-                      </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block">
+                          <span className="font-semibold">Color Theme</span>
+                          <select
+                            value={editorTheme}
+                            onChange={(e) => setEditorTheme(e.target.value as "vs-dark" | "light")}
+                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                              editorTheme === "vs-dark"
+                                ? "bg-[#1b1b22] border-slate-700 text-white"
+                                : "bg-white border-slate-300 text-slate-800"
+                            }`}
+                          >
+                            <option value="vs-dark">VS Dark (Premium Charcoal)</option>
+                            <option value="light">Light Mode (Clean Snow)</option>
+                          </select>
+                        </label>
+
+                        <label className="block">
+                          <span className="font-semibold">Sidebar Position</span>
+                          <select
+                            value={sidebarPosition}
+                            onChange={(e) => setSidebarPosition(e.target.value as "left" | "right")}
+                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                              editorTheme === "vs-dark"
+                                ? "bg-[#1b1b22] border-slate-700 text-white"
+                                : "bg-white border-slate-300 text-slate-800"
+                            }`}
+                          >
+                            <option value="left">Left Side</option>
+                            <option value="right">Right Side</option>
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="space-y-3 flex flex-col justify-center">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={showStatusBar}
+                            onChange={(e) => setShowStatusBar(e.target.checked)}
+                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
+                          />
+                          <span className="font-semibold">Show Status Bar</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={showBreadcrumbs}
+                            onChange={(e) => setShowBreadcrumbs(e.target.checked)}
+                            className="w-3.5 h-3.5 rounded accent-indigo-600 cursor-pointer"
+                          />
+                          <span className="font-semibold">Show Breadcrumbs</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <label className="block">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold">Glassmorphism Blur: <span className="text-indigo-400">{glassBlur}px</span></span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="40"
+                          value={glassBlur}
+                          onChange={(e) => setGlassBlur(parseInt(e.target.value))}
+                          className="w-full mt-2 accent-indigo-600 cursor-pointer"
+                        />
+                      </label>
                     </div>
                   </>
                 )}
@@ -2751,14 +2945,73 @@ export default function IDELayout() {
                       <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-slate-500" : "text-slate-500"}`}>Manage AI assistant and Copilot integrations.</p>
                     </div>
 
-                    <div className={`p-3 rounded-lg border ${
-                      editorTheme === "vs-dark"
-                        ? "bg-purple-950/20 border-purple-900/40"
-                        : "bg-purple-50/50 border-purple-200/50"
-                    }`}>
-                      <p className={`text-[11px] ${editorTheme === "vs-dark" ? "text-purple-300" : "text-purple-700"}`}>
-                        AI features including code completion, chat, and analysis can be accessed from the right sidebar. Use voice input for hands-free interaction and collaborate in real-time.
-                      </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="block">
+                          <span className="font-semibold">Autocomplete Mode</span>
+                          <select
+                            value={aiAutocompleteMode}
+                            onChange={(e) => setAiAutocompleteMode(e.target.value as "always" | "manual" | "disabled")}
+                            className={`w-full mt-1 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                              editorTheme === "vs-dark"
+                                ? "bg-[#1b1b22] border-slate-700 text-white"
+                                : "bg-white border-slate-300 text-slate-800"
+                            }`}
+                          >
+                            <option value="always">Always (As-You-Type)</option>
+                            <option value="manual">Manual Trigger Only</option>
+                            <option value="disabled">Disabled</option>
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="block">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold">Max Response Length: <span className="text-indigo-400">{aiMaxTokens} tokens</span></span>
+                          </div>
+                          <input
+                            type="range"
+                            min="256"
+                            max="2048"
+                            step="128"
+                            value={aiMaxTokens}
+                            onChange={(e) => setAiMaxTokens(parseInt(e.target.value))}
+                            className="w-full mt-2.5 accent-indigo-600 cursor-pointer"
+                          />
+                        </label>
+
+                        <label className="block">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold">Temperature: <span className="text-indigo-400">{aiTemperature}</span></span>
+                          </div>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={aiTemperature}
+                            onChange={(e) => setAiTemperature(parseFloat(e.target.value))}
+                            className="w-full mt-2.5 accent-indigo-600 cursor-pointer"
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="pt-1">
+                      <label className="block">
+                        <span className="font-semibold">Copilot Context Directive / System Prompt</span>
+                        <textarea
+                          value={aiSystemPrompt}
+                          onChange={(e) => setAiSystemPrompt(e.target.value)}
+                          className={`w-full mt-1.5 px-2 py-1.5 rounded text-xs border transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none h-[65px] ${
+                            editorTheme === "vs-dark"
+                              ? "bg-[#1b1b22] border-slate-700 text-white placeholder-slate-600"
+                              : "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
+                          }`}
+                          placeholder="e.g., Use functional components with hooks, keep code modular..."
+                        />
+                      </label>
                     </div>
                   </>
                 )}
@@ -2783,6 +3036,7 @@ export default function IDELayout() {
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
+        theme={editorTheme}
       />
     </div>
   );
