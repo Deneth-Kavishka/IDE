@@ -1154,6 +1154,7 @@ export default function IDELayout() {
   const recognitionRef = useRef<any>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
 
   const startListening = () => {
@@ -1215,9 +1216,23 @@ export default function IDELayout() {
     };
   }, []);
 
-  // Auto-scroll chat to bottom
+  // Auto-scroll chat to bottom with smart stabilization and viewport anchoring
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = chatContainerRef.current;
+    if (!container) return;
+
+    // Check if the user is already near the bottom (within a 120px threshold)
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+
+    // Trigger instant scroll during active streaming to prevent jitter, 
+    // and smooth scroll during thinking/idle transitions to feel premium
+    if (isNearBottom || aiStatus === "thinking") {
+      const scrollBehavior = aiStatus === "typing" ? "auto" : "smooth";
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: scrollBehavior
+      });
+    }
   }, [messages, streamingMessage, aiStatus]);
 
   // Handle file code editing
@@ -3222,7 +3237,10 @@ export default function IDELayout() {
           </div>
 
           {/* Chat Timeline (Scrollable Messages Area) */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs scrollbar-thin">
+          <div 
+            ref={chatContainerRef} 
+            className="flex-1 overflow-y-auto p-4 space-y-4 text-xs scrollbar-thin"
+          >
             {messages.map((msg) => (
               <div
                 key={msg.id}
